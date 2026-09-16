@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: al3d-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: al3d_user
+      POSTGRES_PASSWORD: al3d_password
+      POSTGRES_DB: al3d_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

@@ -1,36 +1,86 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AL3D — Fluxo de Caixa Inteligente
 
-## Getting Started
+Aplicação moderna de gestão e controle de fluxo de caixa desenvolvida especialmente para operações de impressão 3D e pedidos sob demanda. 
 
-First, run the development server:
+Substitui a conferência manual em bloco de notas ou WhatsApp por um dashboard dinâmico, rápido e em tempo real.
 
+---
+
+## 🚀 Tecnologias
+
+- **Frontend / Framework:** [Next.js](https://nextjs.org/) (App Router, TypeScript, React 19)
+- **Estilização:** CSS Tokens / Dark Slate Theme com estética SaaS premium
+- **Banco de Dados:** [PostgreSQL](https://www.postgresql.org/) (executado via Docker Compose)
+- **ORM:** [Prisma](https://www.prisma.io/)
+- **Ícones:** Lucide React
+
+---
+
+## ✨ Funcionalidades
+
+- **Cálculo Dinâmico:** Saldo Líquido, Total de Entradas e Total de Saídas calculados automaticamente em tempo real.
+- **Navegação por Mês:** Alterne facilmente entre os meses para conferir faturamento e histórico.
+- **Lançamento Rápido (Tecla `N`):** Modal otimizado para cadastrar entradas e saídas com poucos cliques ou atalhos de teclado.
+- **Status de Pagamento:** Suporte para status de pagamento parcial (*ex: 50% pago / restante na entrega*).
+- **Dark Mode Nativo:** Interface de alto contraste e baixa fadiga visual.
+- **Mobile-First:** Perfeitamente adaptado para uso tanto no desktop quanto na tela do smartphone.
+
+---
+
+## 🛠️ Como Executar o Projeto
+
+### 1. Pré-requisitos
+- Node.js (v18+ recomendado)
+- Docker & Docker Compose
+- Git
+
+### 2. Clonar o repositório
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone git@github.com:RacconWebFenix/al3d.git
+cd al3d
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 3. Subir o Banco de Dados (PostgreSQL)
+```bash
+docker compose up -d
+```
+> O banco subirá mapeado na porta `5433` localmente conforme configurado em `docker-compose.yml`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 4. Configurar as Variáveis de Ambiente
+Copie o arquivo `.env.example` para `.env`:
+```bash
+cp .env.example .env
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 5. Instalar Dependências e Sincronizar o Prisma
+```bash
+npm install
+npx prisma db push
+```
 
-## Learn More
+### 6. Iniciar o Servidor de Desenvolvimento
+```bash
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+Acesse [http://localhost:3000](http://localhost:3000) no seu navegador.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 📦 Estrutura do Projeto
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+al3d/
+├── prisma/
+│   └── schema.prisma        # Modelagem do banco (Transaction, Category)
+├── src/
+│   ├── app/
+│   │   ├── api/transactions # Endpoints REST de criação e listagem
+│   │   ├── globals.css      # Design tokens e estilos globais
+│   │   ├── layout.tsx       # Layout raiz
+│   │   └── page.tsx         # Dashboard principal
+│   ├── components/          # Componentes modulares (Modal de Lançamento, etc.)
+│   └── lib/                 # Cliente Prisma e utilitários
+├── docker-compose.yml       # Orquestração do PostgreSQL
+└── README.md
+```
