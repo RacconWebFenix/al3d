@@ -7,12 +7,13 @@ export async function GET(request: Request) {
     const month = parseInt(searchParams.get('month') || '', 10);
     const year = parseInt(searchParams.get('year') || '', 10);
 
-    let queryText = 'SELECT * FROM transactions ORDER BY date DESC, id DESC';
+    let queryText = "SELECT id, type, amount, TO_CHAR(date, 'YYYY-MM-DD') as date, description, is_partial, partial_note, total_value, created_at FROM transactions ORDER BY date DESC, id DESC";
     let queryParams: any[] = [];
 
     if (!isNaN(month) && !isNaN(year)) {
       queryText = `
-        SELECT * FROM transactions 
+        SELECT id, type, amount, TO_CHAR(date, 'YYYY-MM-DD') as date, description, is_partial, partial_note, total_value, created_at 
+        FROM transactions 
         WHERE EXTRACT(MONTH FROM date) = $1 AND EXTRACT(YEAR FROM date) = $2
         ORDER BY date DESC, id DESC
       `;
@@ -24,7 +25,7 @@ export async function GET(request: Request) {
       ...row,
       amount: parseFloat(row.amount),
       total_value: row.total_value ? parseFloat(row.total_value) : null,
-      date: row.date instanceof Date ? row.date.toISOString().split('T')[0] : String(row.date),
+      date: String(row.date),
     }));
 
     // Calcular totais

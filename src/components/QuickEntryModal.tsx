@@ -17,7 +17,8 @@ export function QuickEntryModal({
   defaultDate,
 }: QuickEntryModalProps) {
   const [type, setType] = useState<'INCOME' | 'EXPENSE'>('INCOME');
-  const [amount, setAmount] = useState('');
+  const [amountDisplay, setAmountDisplay] = useState('');
+  const [amountValue, setAmountValue] = useState<number>(0);
   const [date, setDate] = useState('');
   const [description, setDescription] = useState('');
   const [isPartial, setIsPartial] = useState(false);
@@ -27,11 +28,42 @@ export function QuickEntryModal({
 
   const amountInputRef = useRef<HTMLInputElement>(null);
 
+  // Formata centavos para a máscara em reais (ex: 5000 -> 50,00)
+  const formatCentsToBRL = (cents: number): string => {
+    return (cents / 100).toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
+
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Aceita ESTRITAMENTE números (remove qualquer letra ou caractere especial)
+    const rawDigits = e.target.value.replace(/\D/g, '');
+
+    if (!rawDigits) {
+      setAmountDisplay('');
+      setAmountValue(0);
+      return;
+    }
+
+    const cents = parseInt(rawDigits, 10);
+    if (cents > 999999999) return; // Limite de R$ 9.999.999,99
+
+    setAmountDisplay(formatCentsToBRL(cents));
+    setAmountValue(cents / 100);
+  };
+
   useEffect(() => {
     if (isOpen) {
-      const today = new Date().toISOString().split('T')[0];
-      setDate(defaultDate || today);
-      setAmount('');
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const d = String(now.getDate()).padStart(2, '0');
+      const todayLocal = `${y}-${m}-${d}`;
+
+      setDate(defaultDate || todayLocal);
+      setAmountDisplay('');
+      setAmountValue(0);
       setDescription('');
       setIsPartial(false);
       setError('');
@@ -45,15 +77,16 @@ export function QuickEntryModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!amount || !description || !date) {
-      setError('Preencha o valor, data e descrição.');
+    if (amountValue <= 0) {
+      setError('Informe um valor maior que zero.');
       return;
     }
-
-    const cleanAmount = amount.replace(',', '.');
-    const numAmount = parseFloat(cleanAmount);
-    if (isNaN(numAmount) || numAmount <= 0) {
-      setError('Informe um valor numérico válido maior que zero.');
+    if (!description.trim()) {
+      setError('Preencha a descrição do pedido ou insumo.');
+      return;
+    }
+    if (!date) {
+      setError('Selecione a data.');
       return;
     }
 
@@ -66,9 +99,9 @@ export function QuickEntryModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type,
-          amount: numAmount,
+          amount: amountValue,
           date,
-          description,
+          description: description.trim(),
           is_partial: isPartial,
           partial_note: isPartial ? partialNote : null,
         }),
@@ -129,20 +162,22 @@ export function QuickEntryModal({
             </button>
           </div>
 
-          {/* Campo de Valor Grande */}
+          {/* Campo de Valor Grande com Máscara em Reais */}
           <div className="text-center py-2">
-            <label className="block text-xs font-semibold text-[var(--text-dim)] uppercase tracking-wider mb-1">
+            <label className="block text-xs font-semibold text-[var(--text-dim)] uppercase tracking-wider mb-2">
               Valor (R$)
             </label>
-            <div className="relative inline-block w-full">
+            <div className="relative inline-flex items-center justify-center gap-2 w-full">
+              <span className="text-2xl font-extrabold text-[var(--text-muted)]">R$</span>
               <input
                 ref={amountInputRef}
                 type="text"
-                inputMode="decimal"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={amountDisplay}
+                onChange={handleAmountChange}
                 placeholder="0,00"
-                className="w-full text-center text-4xl font-extrabold bg-transparent text-white placeholder-white/20 focus:outline-none tabular-numbers"
+                className="w-56 text-left text-4xl font-extrabold bg-transparent text-white placeholder-white/20 focus:outline-none tabular-numbers"
               />
             </div>
           </div>

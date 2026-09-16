@@ -9,9 +9,9 @@ import { DeleteConfirmModal } from '@/components/DeleteConfirmModal';
 import { Loader2, Plus, Sparkles } from 'lucide-react';
 
 export default function Home() {
-  // Inicializamos em Setembro 2024 para exibir os dados exatos do print da AL3D
-  const [currentMonth, setCurrentMonth] = useState<number>(9);
-  const [currentYear, setCurrentYear] = useState<number>(2024);
+  // Inicializa automaticamente com o mês e ano atuais
+  const [currentMonth, setCurrentMonth] = useState<number>(() => new Date().getMonth() + 1);
+  const [currentYear, setCurrentYear] = useState<number>(() => new Date().getFullYear());
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [summary, setSummary] = useState({ totalIncome: 0, totalExpense: 0, netTotal: 0 });
@@ -153,7 +153,19 @@ export default function Home() {
         isOpen={isNewModalOpen}
         onClose={() => setIsNewModalOpen(false)}
         onSuccess={fetchTransactions}
-        defaultDate={`${currentYear}-${String(currentMonth).padStart(2, '0')}-01`}
+        defaultDate={(() => {
+          const now = new Date();
+          const isCurrentPeriod =
+            currentMonth === now.getMonth() + 1 &&
+            currentYear === now.getFullYear();
+          if (isCurrentPeriod) {
+            const y = now.getFullYear();
+            const m = String(now.getMonth() + 1).padStart(2, '0');
+            const d = String(now.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+          }
+          return `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
+        })()}
       />
 
       <DeleteConfirmModal
