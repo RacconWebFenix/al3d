@@ -130,8 +130,9 @@ export function NewOrderModal({ isOpen, onClose, onSuccess }: NewOrderModalProps
 
       onSuccess();
       onClose();
-    } catch (err: any) {
-      setError(err.message || 'Erro ao salvar o pedido.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao salvar o pedido.';
+      setError(msg);
     } finally {
       setLoading(false);
     }

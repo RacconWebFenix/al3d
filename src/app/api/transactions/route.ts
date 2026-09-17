@@ -1,5 +1,17 @@
 import { NextResponse } from 'next/server';
-import pool from '@/lib/db';
+import pool, { QueryParam } from '@/lib/db';
+
+interface TransactionDbRow {
+  id: number;
+  type: 'INCOME' | 'EXPENSE';
+  amount: string | number;
+  date: string | Date;
+  description: string;
+  is_partial: boolean;
+  partial_note: string | null;
+  total_value: string | number | null;
+  created_at: string;
+}
 
 export async function GET(request: Request) {
   try {
@@ -8,7 +20,7 @@ export async function GET(request: Request) {
     const year = parseInt(searchParams.get('year') || '', 10);
 
     let queryText = "SELECT id, type, amount, TO_CHAR(date, 'YYYY-MM-DD') as date, description, is_partial, partial_note, total_value, created_at FROM transactions ORDER BY date DESC, id DESC";
-    let queryParams: any[] = [];
+    let queryParams: QueryParam[] = [];
 
     if (!isNaN(month) && !isNaN(year)) {
       queryText = `
@@ -21,10 +33,10 @@ export async function GET(request: Request) {
     }
 
     const result = await pool.query(queryText, queryParams);
-    const transactions = result.rows.map((row: any) => ({
+    const transactions = (result.rows as TransactionDbRow[]).map((row) => ({
       ...row,
-      amount: parseFloat(row.amount),
-      total_value: row.total_value ? parseFloat(row.total_value) : null,
+      amount: typeof row.amount === 'number' ? row.amount : parseFloat(row.amount),
+      total_value: row.total_value ? (typeof row.total_value === 'number' ? row.total_value : parseFloat(row.total_value)) : null,
       date: String(row.date),
     }));
 
@@ -50,9 +62,10 @@ export async function GET(request: Request) {
         netTotal,
       },
     });
-  } catch (error: any) {
-    console.error('Erro ao buscar transações:', error);
-    return NextResponse.json({ error: 'Erro ao buscar transações' }, { status: 500 });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Erro ao buscar transações';
+    console.error('Erro ao buscar transações:', msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
@@ -76,7 +89,7 @@ export async function POST(request: Request) {
     const result = await pool.query(
       `INSERT INTO transactions (type, amount, date, description, is_partial, partial_note, total_value)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING *`,
+       RETURNING id, type, amount, TO_CHAR(date, 'YYYY-MM-DD') as date, description, is_partial, partial_note, total_value, created_at`,
       [
         type,
         parsedAmount,
@@ -88,15 +101,16 @@ export async function POST(request: Request) {
       ]
     );
 
-    const created = result.rows[0];
+    const created = result.rows[0] as TransactionDbRow;
     return NextResponse.json({
       ...created,
-      amount: parseFloat(created.amount),
-      date: created.date instanceof Date ? created.date.toISOString().split('T')[0] : String(created.date),
+      amount: typeof created.amount === 'number' ? created.amount : parseFloat(created.amount),
+      date: String(created.date),
     }, { status: 201 });
-  } catch (error: any) {
-    console.error('Erro ao criar transação:', error);
-    return NextResponse.json({ error: 'Erro ao criar transação' }, { status: 500 });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Erro ao criar transação';
+    console.error('Erro ao criar transação:', msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
@@ -111,8 +125,9 @@ export async function DELETE(request: Request) {
 
     await pool.query('DELETE FROM transactions WHERE id = $1', [id]);
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    console.error('Erro ao excluir transação:', error);
-    return NextResponse.json({ error: 'Erro ao excluir transação' }, { status: 500 });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Erro ao excluir transação';
+    console.error('Erro ao excluir transação:', msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

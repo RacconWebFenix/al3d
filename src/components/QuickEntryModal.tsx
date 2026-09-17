@@ -114,8 +114,9 @@ export function QuickEntryModal({
 
       onSuccess();
       onClose();
-    } catch (err: any) {
-      setError(err.message || 'Erro de conexão.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro de conexão.';
+      setError(msg);
     } finally {
       setLoading(false);
     }

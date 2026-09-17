@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { Calendar, ChevronRight, ChevronLeft, Trash2, Clock, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Calendar, Trash2, AlertTriangle, GripVertical } from 'lucide-react';
 import { formatCurrencyBRL } from '@/lib/formatters';
 
 export interface Order {
@@ -18,17 +18,11 @@ export interface Order {
 
 interface OrderCardProps {
   order: Order;
-  onAdvanceStage: (order: Order, nextStage: Order['stage']) => void;
-  onRegressStage: (order: Order, prevStage: Order['stage']) => void;
   onDelete: (id: number) => void;
 }
 
-const STAGES_ORDER: Order['stage'][] = ['COTACAO', 'MODELANDO', 'IMPRIMINDO', 'PAGAMENTO', 'ENTREGUE'];
-
-export function OrderCard({ order, onAdvanceStage, onRegressStage, onDelete }: OrderCardProps) {
-  const currentIndex = STAGES_ORDER.indexOf(order.stage);
-  const prevStage = currentIndex > 0 ? STAGES_ORDER[currentIndex - 1] : null;
-  const nextStage = currentIndex < STAGES_ORDER.length - 1 ? STAGES_ORDER[currentIndex + 1] : null;
+export function OrderCard({ order, onDelete }: OrderCardProps) {
+  const [isDragging, setIsDragging] = useState(false);
 
   // Cálculo de dias restantes para o prazo de entrega
   const getDeadlineInfo = (dateStr: string) => {
@@ -73,15 +67,41 @@ export function OrderCard({ order, onAdvanceStage, onRegressStage, onDelete }: O
   const isFullyPaid = order.paid_amount >= order.total_value && order.total_value > 0;
   const isPartiallyPaid = order.is_partial_paid || (order.paid_amount > 0 && order.paid_amount < order.total_value);
 
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
+    e.dataTransfer.setData('text/plain', String(order.id));
+    e.dataTransfer.effectAllowed = 'move';
+    setIsDragging(true);
+  };
+
+  const handleDragEnd = () => {
+    setIsDragging(false);
+  };
+
   return (
-    <div className="group relative bg-[#121826]/90 border border-white/10 hover:border-white/20 rounded-2xl p-4 shadow-xl backdrop-blur-md transition-all hover:shadow-2xl hover:-translate-y-0.5">
-      {/* Topo do Card: Nome do Cliente e Ações */}
+    <div
+      draggable
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      className={`group relative bg-[#121826]/90 border rounded-2xl p-4 shadow-xl backdrop-blur-md transition-all cursor-grab active:cursor-grabbing select-none ${
+        isDragging
+          ? 'opacity-40 scale-95 border-emerald-500/60 shadow-emerald-500/20 shadow-2xl'
+          : 'border-white/10 hover:border-white/25 hover:shadow-2xl hover:-translate-y-0.5'
+      }`}
+    >
+      {/* Topo do Card: Ícone Grip, Nome do Cliente e Exclusão */}
       <div className="flex items-start justify-between gap-2 mb-1.5">
-        <h4 className="font-bold text-white text-base tracking-tight truncate" title={order.client_name}>
-          {order.client_name}
-        </h4>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <GripVertical className="w-3.5 h-3.5 text-[var(--text-dim)] group-hover:text-emerald-400/80 transition-colors flex-shrink-0" />
+          <h4 className="font-bold text-white text-base tracking-tight truncate" title={order.client_name}>
+            {order.client_name}
+          </h4>
+        </div>
+
         <button
-          onClick={() => onDelete(order.id)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(order.id);
+          }}
           className="opacity-0 group-hover:opacity-100 text-[var(--text-dim)] hover:text-rose-400 p-1 rounded-lg hover:bg-white/5 transition-all"
           title="Excluir pedido"
         >
@@ -90,12 +110,12 @@ export function OrderCard({ order, onAdvanceStage, onRegressStage, onDelete }: O
       </div>
 
       {/* Descrição do Pedido / Peça 3D */}
-      <p className="text-sm text-[var(--text-muted)] line-clamp-2 mb-3 leading-relaxed">
+      <p className="text-sm text-[var(--text-muted)] line-clamp-2 mb-3 leading-relaxed pl-5">
         {order.description}
       </p>
 
       {/* Badge de Prazo de Entrega */}
-      <div className="mb-3.5">
+      <div className="mb-3.5 pl-5">
         <span
           className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${
             deadline.status === 'late'
@@ -135,33 +155,6 @@ export function OrderCard({ order, onAdvanceStage, onRegressStage, onDelete }: O
             </span>
           )}
         </div>
-      </div>
-
-      {/* Ações de Avanço/Recuo de Etapa (visíveis no hover) */}
-      <div className="mt-3 pt-2 flex items-center justify-between border-t border-white/5 text-[11px] text-[var(--text-dim)]">
-        {prevStage ? (
-          <button
-            onClick={() => onRegressStage(order, prevStage)}
-            className="flex items-center gap-1 hover:text-white transition-colors"
-            title="Voltar etapa"
-          >
-            <ChevronLeft className="w-3 h-3" />
-            <span>Voltar</span>
-          </button>
-        ) : (
-          <span />
-        )}
-
-        {nextStage && (
-          <button
-            onClick={() => onAdvanceStage(order, nextStage)}
-            className="flex items-center gap-1 font-semibold text-emerald-400 hover:text-emerald-300 transition-colors ml-auto"
-            title="Avançar etapa"
-          >
-            <span>Avançar</span>
-            <ChevronRight className="w-3 h-3" />
-          </button>
-        )}
       </div>
     </div>
   );

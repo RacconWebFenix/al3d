@@ -128,40 +128,22 @@ export default function Home() {
     }
   };
 
-  // Ações no Kanban de Pedidos
-  const handleAdvanceStage = async (order: Order, nextStage: Order['stage']) => {
-    // Atualização otimista na interface
+  // Mover etapa do pedido via Drag and Drop
+  const handleMoveOrderToStage = async (orderId: number, targetStage: Order['stage']) => {
+    // Atualização otimista imediata na interface
     setOrders((prev) =>
-      prev.map((o) => (o.id === order.id ? { ...o, stage: nextStage } : o))
+      prev.map((o) => (o.id === orderId ? { ...o, stage: targetStage } : o))
     );
 
     try {
       await fetch('/api/orders', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: order.id, stage: nextStage }),
+        body: JSON.stringify({ id: orderId, stage: targetStage }),
       });
       fetchOrders();
-    } catch (err) {
-      console.error('Erro ao avançar etapa:', err);
-      fetchOrders();
-    }
-  };
-
-  const handleRegressStage = async (order: Order, prevStage: Order['stage']) => {
-    setOrders((prev) =>
-      prev.map((o) => (o.id === order.id ? { ...o, stage: prevStage } : o))
-    );
-
-    try {
-      await fetch('/api/orders', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: order.id, stage: prevStage }),
-      });
-      fetchOrders();
-    } catch (err) {
-      console.error('Erro ao recuar etapa:', err);
+    } catch (err: unknown) {
+      console.error('Erro ao mover pedido de etapa:', err);
       fetchOrders();
     }
   };
@@ -175,7 +157,7 @@ export default function Home() {
         method: 'DELETE',
       });
       fetchOrders();
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Erro ao excluir pedido:', err);
       fetchOrders();
     }
@@ -203,8 +185,7 @@ export default function Home() {
             loading={loadingOrders}
             onOpenNewOrder={() => setIsNewOrderModalOpen(true)}
             onRefresh={fetchOrders}
-            onAdvanceStage={handleAdvanceStage}
-            onRegressStage={handleRegressStage}
+            onMoveOrderToStage={handleMoveOrderToStage}
             onDeleteOrder={handleDeleteOrder}
           />
         </div>

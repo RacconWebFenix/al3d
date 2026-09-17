@@ -10,9 +10,8 @@ import {
   Cog, 
   CreditCard, 
   PackageCheck,
-  Filter,
   Loader2,
-  RefreshCw
+  ArrowDown
 } from 'lucide-react';
 import { Order, OrderCard } from './OrderCard';
 
@@ -21,8 +20,7 @@ interface OrdersKanbanProps {
   loading: boolean;
   onOpenNewOrder: () => void;
   onRefresh: () => void;
-  onAdvanceStage: (order: Order, nextStage: Order['stage']) => void;
-  onRegressStage: (order: Order, prevStage: Order['stage']) => void;
+  onMoveOrderToStage: (orderId: number, targetStage: Order['stage']) => void;
   onDeleteOrder: (id: number) => void;
 }
 
@@ -83,12 +81,12 @@ export function OrdersKanban({
   loading,
   onOpenNewOrder,
   onRefresh,
-  onAdvanceStage,
-  onRegressStage,
+  onMoveOrderToStage,
   onDeleteOrder,
 }: OrdersKanbanProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState<'ALL' | 'WEEK' | 'LATE'>('ALL');
+  const [dragOverColumn, setDragOverColumn] = useState<Order['stage'] | null>(null);
 
   // Filtragem
   const filteredOrders = useMemo(() => {
@@ -122,6 +120,31 @@ export function OrdersKanban({
     return result;
   }, [orders, searchTerm, dateFilter]);
 
+  const handleDragOverColumn = (e: React.DragEvent<HTMLDivElement>, stage: Order['stage']) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverColumn !== stage) {
+      setDragOverColumn(stage);
+    }
+  };
+
+  const handleDragLeaveColumn = (e: React.DragEvent<HTMLDivElement>) => {
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+    setDragOverColumn(null);
+  };
+
+  const handleDropOnColumn = (e: React.DragEvent<HTMLDivElement>, targetStage: Order['stage']) => {
+    e.preventDefault();
+    setDragOverColumn(null);
+    const orderIdStr = e.dataTransfer.getData('text/plain');
+    if (!orderIdStr) return;
+
+    const orderId = parseInt(orderIdStr, 10);
+    if (!isNaN(orderId)) {
+      onMoveOrderToStage(orderId, targetStage);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Subheader: Busca, Filtro de Data e Botão Novo Pedido (Fiel ao Mockup) */}
@@ -139,12 +162,12 @@ export function OrdersKanban({
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Seletor de Filtro de Data */}
+          {/* Seletor de Filtro de Data (Tipagem estrita sem any) */}
           <div className="relative flex items-center">
             <CalendarIcon className="w-4 h-4 text-[var(--text-dim)] absolute left-3 pointer-events-none" />
             <select
               value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value as any)}
+              onChange={(e) => setDateFilter(e.target.value as 'ALL' | 'WEEK' | 'LATE')}
               className="pl-9 pr-8 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm appearance-none focus:outline-none focus:border-emerald-500/50 cursor-pointer"
             >
               <option value="ALL" className="bg-[#121826] text-white">Todos os prazos</option>
@@ -171,20 +194,32 @@ export function OrdersKanban({
           <p className="text-sm">Carregando pedidos da AL3D...</p>
         </div>
       ) : (
-        /* Grid das 5 Colunas do Kanban */
+        /* Grid das 5 Colunas do Kanban com Drag and Drop */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-start pb-10">
           {COLUMNS.map((col) => {
             const columnOrders = filteredOrders.filter((o) => o.stage === col.key);
             const Icon = col.icon;
+            const isHovered = dragOverColumn === col.key;
 
             return (
               <div
                 key={col.key}
-                className="flex flex-col min-h-[520px] bg-[#0c121e]/60 border border-white/5 rounded-2xl p-2.5 transition-all"
+                onDragOver={(e) => handleDragOverColumn(e, col.key)}
+                onDragLeave={handleDragLeaveColumn}
+                onDrop={(e) => handleDropOnColumn(e, col.key)}
+                className={`flex flex-col min-h-[550px] rounded-2xl p-2.5 transition-all duration-200 border ${
+                  isHovered
+                    ? 'border-emerald-500/60 bg-emerald-500/[0.06] shadow-xl shadow-emerald-500/10 ring-2 ring-emerald-500/30 scale-[1.01]'
+                    : 'bg-[#0c121e]/60 border-white/5'
+                }`}
               >
-                {/* Cabeçalho da Coluna (Pill com Número, Ícone e Label idênticos ao Mockup) */}
+                {/* Cabeçalho da Coluna (Pill com Número, Ícone e Label) */}
                 <div
-                  className={`flex items-center justify-between px-3 py-2 rounded-xl border mb-3 ${col.pillClasses}`}
+                  className={`flex items-center justify-between px-3 py-2 rounded-xl border mb-3 transition-colors ${
+                    isHovered
+                      ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300'
+                      : col.pillClasses
+                  }`}
                 >
                   <div className="flex items-center gap-2">
                     <span className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-extrabold bg-white/20">
@@ -203,19 +238,25 @@ export function OrdersKanban({
                   </div>
                 </div>
 
+                {/* Zona de Drop Interativa quando arrastando */}
+                {isHovered && (
+                  <div className="mb-3 py-2 px-3 border-2 border-dashed border-emerald-400/50 rounded-xl bg-emerald-500/10 text-emerald-300 text-xs font-semibold flex items-center justify-center gap-1.5 animate-pulse">
+                    <ArrowDown className="w-3.5 h-3.5" />
+                    <span>Solte para mover para {col.label}</span>
+                  </div>
+                )}
+
                 {/* Lista de Cards da Coluna */}
                 <div className="flex-1 space-y-3 overflow-y-auto max-h-[700px] pr-1">
                   {columnOrders.length === 0 ? (
                     <div className="h-36 flex flex-col items-center justify-center text-center p-4 border border-dashed border-white/5 rounded-xl text-[var(--text-dim)] text-xs">
-                      <span>Nenhum pedido nesta etapa</span>
+                      <span>Arraste pedidos para cá</span>
                     </div>
                   ) : (
                     columnOrders.map((order) => (
                       <OrderCard
                         key={order.id}
                         order={order}
-                        onAdvanceStage={onAdvanceStage}
-                        onRegressStage={onRegressStage}
                         onDelete={onDeleteOrder}
                       />
                     ))

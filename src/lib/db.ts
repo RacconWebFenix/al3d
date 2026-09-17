@@ -98,7 +98,9 @@ async function ensureTableExists() {
   }
 }
 
-export async function query(text: string, params?: any[]) {
+export type QueryParam = string | number | boolean | null | undefined;
+
+export async function query(text: string, params?: QueryParam[]) {
   await ensureTableExists();
   const pool = getPool();
   const res = await pool.query(text, params);

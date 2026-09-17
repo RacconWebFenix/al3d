@@ -1,5 +1,19 @@
 import { NextResponse } from 'next/server';
-import pool from '@/lib/db';
+import pool, { QueryParam } from '@/lib/db';
+
+interface OrderDbRow {
+  id: number;
+  client_name: string;
+  description: string;
+  stage: string;
+  total_value: string | number;
+  paid_amount: string | number;
+  is_partial_paid: boolean;
+  delivery_date: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 export async function GET(request: Request) {
   try {
@@ -14,7 +28,7 @@ export async function GET(request: Request) {
       FROM orders
     `;
     const conditions: string[] = [];
-    const params: any[] = [];
+    const params: QueryParam[] = [];
 
     if (stage) {
       params.push(stage);
@@ -33,16 +47,17 @@ export async function GET(request: Request) {
     queryText += ` ORDER BY delivery_date ASC, id DESC`;
 
     const result = await pool.query(queryText, params);
-    const orders = result.rows.map((row: any) => ({
+    const orders = (result.rows as OrderDbRow[]).map((row) => ({
       ...row,
-      total_value: parseFloat(row.total_value) || 0,
-      paid_amount: parseFloat(row.paid_amount) || 0,
+      total_value: typeof row.total_value === 'number' ? row.total_value : parseFloat(row.total_value) || 0,
+      paid_amount: typeof row.paid_amount === 'number' ? row.paid_amount : parseFloat(row.paid_amount) || 0,
     }));
 
     return NextResponse.json({ orders });
-  } catch (error: any) {
-    console.error('Erro ao buscar pedidos:', error);
-    return NextResponse.json({ error: 'Erro ao buscar pedidos' }, { status: 500 });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Erro ao buscar pedidos';
+    console.error('Erro ao buscar pedidos:', msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
@@ -77,15 +92,16 @@ export async function POST(request: Request) {
       ]
     );
 
-    const created = result.rows[0];
+    const created = result.rows[0] as OrderDbRow;
     return NextResponse.json({
       ...created,
-      total_value: parseFloat(created.total_value),
-      paid_amount: parseFloat(created.paid_amount),
+      total_value: typeof created.total_value === 'number' ? created.total_value : parseFloat(created.total_value),
+      paid_amount: typeof created.paid_amount === 'number' ? created.paid_amount : parseFloat(created.paid_amount),
     }, { status: 201 });
-  } catch (error: any) {
-    console.error('Erro ao criar pedido:', error);
-    return NextResponse.json({ error: 'Erro ao criar pedido' }, { status: 500 });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Erro ao criar pedido';
+    console.error('Erro ao criar pedido:', msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
@@ -99,7 +115,7 @@ export async function PATCH(request: Request) {
     }
 
     const updates: string[] = [];
-    const params: any[] = [];
+    const params: QueryParam[] = [];
 
     if (stage !== undefined) {
       params.push(stage);
@@ -149,15 +165,16 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Pedido não encontrado' }, { status: 404 });
     }
 
-    const updated = result.rows[0];
+    const updated = result.rows[0] as OrderDbRow;
     return NextResponse.json({
       ...updated,
-      total_value: parseFloat(updated.total_value),
-      paid_amount: parseFloat(updated.paid_amount),
+      total_value: typeof updated.total_value === 'number' ? updated.total_value : parseFloat(updated.total_value),
+      paid_amount: typeof updated.paid_amount === 'number' ? updated.paid_amount : parseFloat(updated.paid_amount),
     });
-  } catch (error: any) {
-    console.error('Erro ao atualizar pedido:', error);
-    return NextResponse.json({ error: 'Erro ao atualizar pedido' }, { status: 500 });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Erro ao atualizar pedido';
+    console.error('Erro ao atualizar pedido:', msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
@@ -172,8 +189,9 @@ export async function DELETE(request: Request) {
 
     await pool.query('DELETE FROM orders WHERE id = $1', [id]);
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    console.error('Erro ao excluir pedido:', error);
-    return NextResponse.json({ error: 'Erro ao excluir pedido' }, { status: 500 });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Erro ao excluir pedido';
+    console.error('Erro ao excluir pedido:', msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
