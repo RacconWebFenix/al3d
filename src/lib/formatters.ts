@@ -5,6 +5,8 @@ export function formatCurrency(value: number): string {
   }).format(value);
 }
 
+export const formatCurrencyBRL = formatCurrency;
+
 export function formatDateShort(dateString: string): string {
   if (!dateString) return '';
   const parts = dateString.split('-');
