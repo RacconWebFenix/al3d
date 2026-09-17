@@ -71,7 +71,7 @@ export function OrdersListView({
 }: OrdersListViewProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeStageFilter, setActiveStageFilter] = useState<StageFilter>('ALL');
-  const [stageMenuOpenId, setStageMenuOpenId] = useState<number | null>(null);
+  const [selectedOrderForStageChange, setSelectedOrderForStageChange] = useState<Order | null>(null);
 
   // Cálculos de KPIs rápidos
   const kpis = useMemo(() => {
@@ -292,7 +292,6 @@ export function OrdersListView({
             const stageConfig = STAGES_CONFIG.find((s) => s.key === order.stage) || STAGES_CONFIG[0];
             const delivery = getDeliveryDetails(order);
             const DeliveryIcon = delivery.icon;
-            const isMenuOpen = stageMenuOpenId === order.id;
 
             const isFullyPaid = order.paid_amount >= order.total_value && order.total_value > 0;
             const isPartiallyPaid = !isFullyPaid && (order.is_partial_paid || (order.paid_amount > 0 && order.paid_amount < order.total_value));
@@ -311,15 +310,15 @@ export function OrdersListView({
                     </h4>
                   </div>
 
-                  <div className="relative flex items-center gap-1 flex-shrink-0">
-                    {/* Badge de Etapa (Clicável para trocar no Mobile) */}
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {/* Badge de Etapa (Abre Action Sheet no Mobile) */}
                     <button
-                      onClick={() => setStageMenuOpenId(isMenuOpen ? null : order.id)}
-                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${stageConfig.badgeClasses} hover:scale-105 active:scale-95`}
+                      onClick={() => setSelectedOrderForStageChange(order)}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-all ${stageConfig.badgeClasses} hover:scale-105 active:scale-95`}
                       title="Toque para mudar de etapa"
                     >
                       <span>{stageConfig.label}</span>
-                      <ChevronRight className="w-3 h-3 opacity-70" />
+                      <ChevronRight className="w-3.5 h-3.5 opacity-80" />
                     </button>
 
                     {/* Botão de Excluir */}
@@ -330,32 +329,6 @@ export function OrdersListView({
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
-
-                    {/* Popover de Seleção Rápida de Etapa para Touch */}
-                    {isMenuOpen && (
-                      <div className="absolute right-0 top-8 z-30 w-48 rounded-xl bg-[#162032] border border-white/15 p-1.5 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95">
-                        <div className="text-[10px] uppercase font-bold text-[var(--text-dim)] px-2.5 py-1">
-                          Mudar etapa:
-                        </div>
-                        {STAGES_CONFIG.map((st) => (
-                          <button
-                            key={st.key}
-                            onClick={() => {
-                              onMoveOrderToStage(order.id, st.key);
-                              setStageMenuOpenId(null);
-                            }}
-                            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                              order.stage === st.key
-                                ? 'bg-white/10 text-white'
-                                : 'text-[var(--text-muted)] hover:bg-white/5 hover:text-white'
-                            }`}
-                          >
-                            <span>{st.label}</span>
-                            {order.stage === st.key && <span className="text-cyan-400">●</span>}
-                          </button>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 </div>
 
@@ -405,7 +378,84 @@ export function OrdersListView({
         )}
       </div>
 
-      {/* 5. Botão Flutuante (FAB) `+ Novo Pedido` no Rodapé (Ergonomia Mobile) */}
+      {/* 5. Action Sheet de Mudança de Etapa para Mobile (Nunca corta em telas pequenas) */}
+      {selectedOrderForStageChange && (
+        <div 
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in"
+          onClick={() => setSelectedOrderForStageChange(null)}
+        >
+          <div 
+            className="w-full max-w-md rounded-t-3xl sm:rounded-2xl bg-[#111827] border border-white/15 p-5 shadow-2xl space-y-4 animate-in slide-in-from-bottom-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Handle do modal mobile */}
+            <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto sm:hidden mb-1" />
+
+            <div className="flex items-start justify-between gap-3 pb-2 border-b border-white/10">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Box className="w-4 h-4 text-cyan-400" />
+                  <span>Mudar Etapa do Pedido</span>
+                </h3>
+                <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                  <strong className="text-white font-semibold">{selectedOrderForStageChange.client_name}</strong> · {selectedOrderForStageChange.description}
+                </p>
+              </div>
+
+              <button
+                onClick={() => setSelectedOrderForStageChange(null)}
+                className="text-[var(--text-dim)] hover:text-white p-1 rounded-lg hover:bg-white/10 transition-all text-xs"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Lista com todas as 5 Etapas completas */}
+            <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+              {STAGES_CONFIG.map((stage, idx) => {
+                const isCurrent = selectedOrderForStageChange.stage === stage.key;
+
+                return (
+                  <button
+                    key={stage.key}
+                    onClick={() => {
+                      onMoveOrderToStage(selectedOrderForStageChange.id, stage.key);
+                      setSelectedOrderForStageChange(null);
+                    }}
+                    className={`w-full flex items-center justify-between p-3 rounded-xl border text-sm font-semibold transition-all ${
+                      isCurrent
+                        ? `${stage.badgeClasses} ring-2 ring-white/20 scale-[1.01]`
+                        : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold">
+                        {idx + 1}
+                      </span>
+                      <span>{stage.label}</span>
+                    </div>
+
+                    {isCurrent && (
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-white/20">
+                        Atual
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={() => setSelectedOrderForStageChange(null)}
+              className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-medium text-xs transition-colors"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 6. Botão Flutuante (FAB) `+ Novo Pedido` no Rodapé */}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-20">
         <button
           onClick={onOpenNewOrder}
