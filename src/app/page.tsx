@@ -227,16 +227,18 @@ export default function Home() {
         </div>
       )}
 
-      {/* Botão Flutuante Mobile (FAB) */}
-      <div className="md:hidden fixed bottom-6 right-6 z-40">
-        <button
-          onClick={() => (activeTab === 'CASHFLOW' ? setIsNewModalOpen(true) : setIsNewOrderModalOpen(true))}
-          className="w-14 h-14 rounded-2xl bg-emerald-500 text-slate-950 flex items-center justify-center shadow-xl shadow-emerald-500/40 active:scale-95 transition-transform"
-          title={activeTab === 'CASHFLOW' ? 'Novo Lançamento' : 'Novo Pedido'}
-        >
-          <Plus className="w-6 h-6 stroke-[3]" />
-        </button>
-      </div>
+      {/* Botão Flutuante Mobile (FAB) - Apenas para Fluxo de Caixa (em Pedidos já existe o botão dedicado) */}
+      {activeTab === 'CASHFLOW' && (
+        <div className="md:hidden fixed bottom-6 right-6 z-40">
+          <button
+            onClick={() => setIsNewModalOpen(true)}
+            className="w-14 h-14 rounded-2xl bg-emerald-500 text-slate-950 flex items-center justify-center shadow-xl shadow-emerald-500/40 active:scale-95 transition-transform"
+            title="Novo Lançamento"
+          >
+            <Plus className="w-6 h-6 stroke-[3]" />
+          </button>
+        </div>
+      )}
 
       {/* Modal de Novo Lançamento (Fluxo de Caixa) */}
       <QuickEntryModal
