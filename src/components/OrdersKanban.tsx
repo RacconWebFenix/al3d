@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Search, 
   Calendar as CalendarIcon, 
@@ -9,11 +9,14 @@ import {
   Box, 
   Cog, 
   CreditCard, 
-  PackageCheck,
-  Loader2,
-  ArrowDown
+  PackageCheck, 
+  Loader2, 
+  ArrowDown, 
+  LayoutGrid, 
+  List as ListIcon 
 } from 'lucide-react';
 import { Order, OrderCard } from './OrderCard';
+import { OrdersListView } from './OrdersListView';
 
 interface OrdersKanbanProps {
   orders: Order[];
@@ -84,11 +87,19 @@ export function OrdersKanban({
   onMoveOrderToStage,
   onDeleteOrder,
 }: OrdersKanbanProps) {
+  const [viewMode, setViewMode] = useState<'KANBAN' | 'LIST'>('KANBAN');
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState<'ALL' | 'WEEK' | 'LATE'>('ALL');
   const [dragOverColumn, setDragOverColumn] = useState<Order['stage'] | null>(null);
 
-  // Filtragem
+  // Detecção inicial para sugerir modo Lista em telas pequenas
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setViewMode('LIST');
+    }
+  }, []);
+
+  // Filtragem para o modo Kanban
   const filteredOrders = useMemo(() => {
     let result = orders;
 
@@ -147,44 +158,76 @@ export function OrdersKanban({
 
   return (
     <div className="space-y-6">
-      {/* Subheader: Busca, Filtro de Data e Botão Novo Pedido (Fiel ao Mockup) */}
+      {/* Barra de Alternância de Visão (Kanban / Lista) */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
-        {/* Barra de Busca */}
-        <div className="relative flex-1 max-w-xl">
-          <Search className="w-4 h-4 text-[var(--text-dim)] absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Buscar cliente, peça ou pedido..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-[var(--text-dim)] focus:outline-none focus:border-emerald-500/50"
-          />
-        </div>
-
-        <div className="flex items-center gap-3">
-          {/* Seletor de Filtro de Data (Tipagem estrita sem any) */}
-          <div className="relative flex items-center">
-            <CalendarIcon className="w-4 h-4 text-[var(--text-dim)] absolute left-3 pointer-events-none" />
-            <select
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value as 'ALL' | 'WEEK' | 'LATE')}
-              className="pl-9 pr-8 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm appearance-none focus:outline-none focus:border-emerald-500/50 cursor-pointer"
-            >
-              <option value="ALL" className="bg-[#121826] text-white">Todos os prazos</option>
-              <option value="WEEK" className="bg-[#121826] text-white">Próximos 7 dias</option>
-              <option value="LATE" className="bg-[#121826] text-white">Atrasados</option>
-            </select>
-          </div>
-
-          {/* Botão + Novo Pedido (Glowing Emerald Green) */}
+        {/* Toggle de Visualização: Colunas (Kanban) / Lista */}
+        <div className="flex items-center gap-1 p-1 rounded-xl bg-white/5 border border-white/10 w-fit">
           <button
-            onClick={onOpenNewOrder}
-            className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm shadow-lg shadow-emerald-500/30 transition-all hover:scale-[1.02] active:scale-98"
+            onClick={() => setViewMode('KANBAN')}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              viewMode === 'KANBAN'
+                ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
+                : 'text-[var(--text-muted)] hover:text-white'
+            }`}
           >
-            <Plus className="w-4 h-4 stroke-[3]" />
-            <span>Novo Pedido</span>
+            <LayoutGrid className="w-3.5 h-3.5" />
+            <span>Colunas (Kanban)</span>
+          </button>
+
+          <button
+            onClick={() => setViewMode('LIST')}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              viewMode === 'LIST'
+                ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'
+                : 'text-[var(--text-muted)] hover:text-white'
+            }`}
+          >
+            <ListIcon className="w-3.5 h-3.5" />
+            <span>Lista (Mobile)</span>
           </button>
         </div>
+
+        {/* Controles do Cabeçalho para o modo Kanban */}
+        {viewMode === 'KANBAN' && (
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1 sm:justify-end">
+            {/* Barra de Busca */}
+            <div className="relative flex-1 max-w-xs">
+              <Search className="w-4 h-4 text-[var(--text-dim)] absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Buscar cliente, peça..."
+                className="w-full pl-10 pr-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs placeholder-[var(--text-dim)] focus:outline-none focus:border-emerald-500/50"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              {/* Seletor de Filtro de Data */}
+              <div className="relative flex items-center">
+                <CalendarIcon className="w-3.5 h-3.5 text-[var(--text-dim)] absolute left-3 pointer-events-none" />
+                <select
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value as 'ALL' | 'WEEK' | 'LATE')}
+                  className="pl-8 pr-7 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs appearance-none focus:outline-none focus:border-emerald-500/50 cursor-pointer"
+                >
+                  <option value="ALL" className="bg-[#121826] text-white">Todos os prazos</option>
+                  <option value="WEEK" className="bg-[#121826] text-white">Próximos 7 dias</option>
+                  <option value="LATE" className="bg-[#121826] text-white">Atrasados</option>
+                </select>
+              </div>
+
+              {/* Botão + Novo Pedido */}
+              <button
+                onClick={onOpenNewOrder}
+                className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-lg shadow-emerald-500/30 transition-all hover:scale-[1.02] active:scale-98"
+              >
+                <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                <span>Novo Pedido</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Loading state */}
@@ -193,6 +236,14 @@ export function OrdersKanban({
           <Loader2 className="w-8 h-8 animate-spin text-emerald-400 mb-2" />
           <p className="text-sm">Carregando pedidos da AL3D...</p>
         </div>
+      ) : viewMode === 'LIST' ? (
+        /* Modo Lista (Fiel ao Mockup Mobile) */
+        <OrdersListView
+          orders={orders}
+          onOpenNewOrder={onOpenNewOrder}
+          onMoveOrderToStage={onMoveOrderToStage}
+          onDeleteOrder={onDeleteOrder}
+        />
       ) : (
         /* Grid das 5 Colunas do Kanban com Drag and Drop */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-start pb-10">
