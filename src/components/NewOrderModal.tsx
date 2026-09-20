@@ -1,6 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useForm, Controller, useWatch } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { X } from 'lucide-react';
 import { formatCurrencyBRL } from '@/lib/formatters';
 
@@ -10,7 +13,17 @@ interface NewOrderModalProps {
   onSuccess: () => void;
 }
 
-export type OrderStage = 'COTACAO' | 'MODELANDO' | 'IMPRIMINDO' | 'PAGAMENTO' | 'ENTREGUE';
+export const orderSchema = z.object({
+  clientName: z.string().trim().min(1, 'Informe o nome do cliente.'),
+  description: z.string().trim().min(1, 'Informe a descrição do item ou modelo 3D.'),
+  stage: z.enum(['COTACAO', 'MODELANDO', 'IMPRIMINDO', 'PAGAMENTO', 'ENTREGUE']),
+  deliveryDate: z.string().min(1, 'Defina o prazo de entrega.'),
+  amountValue: z.number().positive('Informe o valor total do pedido.'),
+  isPartialPaid: z.boolean(),
+});
+
+type OrderFormData = z.infer<typeof orderSchema>;
+export type OrderStage = OrderFormData['stage'];
 
 const STAGES: { key: OrderStage; label: string; activeClass: string }[] = [
   { key: 'COTACAO', label: 'Cotação', activeClass: 'bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/30' },
@@ -29,18 +42,43 @@ function getDefaultDeliveryDate(): string {
   return `${y}-${m}-${d}`;
 }
 
-function NewOrderModalContent({ onClose, onSuccess }: Omit<NewOrderModalProps, 'isOpen'>) {
-  const [clientName, setClientName] = useState('');
-  const [description, setDescription] = useState('');
-  const [stage, setStage] = useState<OrderStage>('IMPRIMINDO');
-  const [deliveryDate, setDeliveryDate] = useState(getDefaultDeliveryDate);
-  const [amountDisplay, setAmountDisplay] = useState('400,00');
-  const [amountValue, setAmountValue] = useState<number>(400.0);
-  const [isPartialPaid, setIsPartialPaid] = useState<boolean>(true);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+// Formatar centavos para BRL
+const formatCentsToBRL = (cents: number): string => {
+  return (cents / 100).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
 
-  const clientInputRef = useRef<HTMLInputElement>(null);
+function NewOrderModalContent({ onClose, onSuccess }: Omit<NewOrderModalProps, 'isOpen'>) {
+  const [amountDisplay, setAmountDisplay] = useState('400,00');
+  const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState('');
+
+  const clientInputRef = useRef<HTMLInputElement | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    control,
+    setValue,
+    formState: { errors },
+  } = useForm<OrderFormData>({
+    resolver: zodResolver(orderSchema),
+    defaultValues: {
+      clientName: '',
+      description: '',
+      stage: 'COTACAO',
+      deliveryDate: getDefaultDeliveryDate(),
+      amountValue: 400.0,
+      isPartialPaid: true,
+    },
+  });
+
+  const stage = useWatch({ control, name: 'stage' });
+  const amountValue = useWatch({ control, name: 'amountValue' });
+
+  const { ref: clientRegisterRef, ...clientRegisterRest } = register('clientName');
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -49,84 +87,65 @@ function NewOrderModalContent({ onClose, onSuccess }: Omit<NewOrderModalProps, '
     return () => clearTimeout(timer);
   }, []);
 
-  // Formatar centavos para BRL
-  const formatCentsToBRL = (cents: number): string => {
-    return (cents / 100).toLocaleString('pt-BR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  };
-
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAmountChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    onChange: (val: number) => void
+  ) => {
     const rawDigits = e.target.value.replace(/\D/g, '');
     if (!rawDigits) {
       setAmountDisplay('');
-      setAmountValue(0);
+      onChange(0);
       return;
     }
     const cents = parseInt(rawDigits, 10);
     if (cents > 999999999) return;
 
     setAmountDisplay(formatCentsToBRL(cents));
-    setAmountValue(cents / 100);
+    onChange(cents / 100);
   };
 
   const halfValue = amountValue > 0 ? amountValue / 2 : 0;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!clientName.trim()) {
-      setError('Informe o nome do cliente.');
-      return;
-    }
-    if (!description.trim()) {
-      setError('Informe a descrição do item ou modelo 3D.');
-      return;
-    }
-    if (amountValue <= 0) {
-      setError('Informe o valor total do pedido.');
-      return;
-    }
-    if (!deliveryDate) {
-      setError('Defina o prazo de entrega.');
-      return;
-    }
-
+  const onSubmit = async (data: OrderFormData) => {
     setLoading(true);
-    setError('');
+    setApiError('');
 
     try {
-      const paidAmount = isPartialPaid ? halfValue : (stage === 'ENTREGUE' || stage === 'PAGAMENTO' ? amountValue : 0);
+      const currentHalfValue = data.amountValue > 0 ? data.amountValue / 2 : 0;
+      const paidAmount = data.isPartialPaid
+        ? currentHalfValue
+        : (data.stage === 'ENTREGUE' || data.stage === 'PAGAMENTO' ? data.amountValue : 0);
 
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          client_name: clientName.trim(),
-          description: description.trim(),
-          stage,
-          total_value: amountValue,
+          client_name: data.clientName.trim(),
+          description: data.description.trim(),
+          stage: data.stage,
+          total_value: data.amountValue,
           paid_amount: paidAmount,
-          is_partial_paid: isPartialPaid,
-          delivery_date: deliveryDate,
+          is_partial_paid: data.isPartialPaid,
+          delivery_date: data.deliveryDate,
         }),
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Erro ao criar pedido');
+        const resData = await res.json();
+        throw new Error(resData.error || 'Erro ao criar pedido');
       }
 
       onSuccess();
       onClose();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro ao salvar o pedido.';
-      setError(msg);
+      setApiError(msg);
     } finally {
       setLoading(false);
     }
   };
+
+  const firstError = Object.values(errors)[0]?.message || apiError;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
@@ -144,17 +163,19 @@ function NewOrderModalContent({ onClose, onSuccess }: Omit<NewOrderModalProps, '
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-5 space-y-4">
           {/* Nome do Cliente */}
           <div>
             <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1.5">
               Nome do cliente
             </label>
             <input
-              ref={clientInputRef}
+              {...clientRegisterRest}
+              ref={(el) => {
+                clientRegisterRef(el);
+                clientInputRef.current = el;
+              }}
               type="text"
-              value={clientName}
-              onChange={(e) => setClientName(e.target.value)}
               placeholder="Ex: Marcos Banespinha"
               className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-[var(--text-dim)] focus:outline-none focus:border-emerald-500/50"
             />
@@ -167,8 +188,7 @@ function NewOrderModalContent({ onClose, onSuccess }: Omit<NewOrderModalProps, '
             </label>
             <textarea
               rows={3}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              {...register('description')}
               placeholder="Ex: 3 Troféus Banespinha em PLA Silk Ouro + Preto"
               className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-[var(--text-dim)] focus:outline-none focus:border-emerald-500/50 resize-none"
             />
@@ -184,7 +204,7 @@ function NewOrderModalContent({ onClose, onSuccess }: Omit<NewOrderModalProps, '
                 <button
                   key={s.key}
                   type="button"
-                  onClick={() => setStage(s.key)}
+                  onClick={() => setValue('stage', s.key, { shouldValidate: true })}
                   className={`py-2 px-1 text-xs rounded-lg transition-all text-center truncate ${
                     stage === s.key
                       ? s.activeClass
@@ -207,8 +227,7 @@ function NewOrderModalContent({ onClose, onSuccess }: Omit<NewOrderModalProps, '
               <div className="relative">
                 <input
                   type="date"
-                  value={deliveryDate}
-                  onChange={(e) => setDeliveryDate(e.target.value)}
+                  {...register('deliveryDate')}
                   className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-emerald-500/50"
                 />
               </div>
@@ -221,13 +240,20 @@ function NewOrderModalContent({ onClose, onSuccess }: Omit<NewOrderModalProps, '
               </label>
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 focus-within:border-emerald-500/50">
                 <span className="text-xl font-bold text-[var(--text-dim)]">R$</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={amountDisplay}
-                  onChange={handleAmountChange}
-                  placeholder="0,00"
-                  className="w-full text-xl font-black text-white bg-transparent focus:outline-none tabular-numbers"
+                <Controller
+                  name="amountValue"
+                  control={control}
+                  render={({ field }) => (
+                    <input
+                      ref={field.ref}
+                      type="text"
+                      inputMode="numeric"
+                      value={amountDisplay}
+                      onChange={(e) => handleAmountChange(e, field.onChange)}
+                      placeholder="0,00"
+                      className="w-full text-xl font-black text-white bg-transparent focus:outline-none tabular-numbers"
+                    />
+                  )}
                 />
               </div>
             </div>
@@ -238,8 +264,7 @@ function NewOrderModalContent({ onClose, onSuccess }: Omit<NewOrderModalProps, '
             <label className="flex items-center gap-2.5 cursor-pointer select-none">
               <input
                 type="checkbox"
-                checked={isPartialPaid}
-                onChange={(e) => setIsPartialPaid(e.target.checked)}
+                {...register('isPartialPaid')}
                 className="w-4 h-4 rounded accent-emerald-500 cursor-pointer"
               />
               <span className="text-xs text-[var(--text-muted)] flex items-center gap-1.5">
@@ -253,9 +278,9 @@ function NewOrderModalContent({ onClose, onSuccess }: Omit<NewOrderModalProps, '
             </label>
           </div>
 
-          {error && (
+          {firstError && (
             <div className="p-2.5 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-medium">
-              {error}
+              {firstError}
             </div>
           )}
 

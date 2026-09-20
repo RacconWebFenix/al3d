@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useSyncExternalStore } from 'react';
 import { 
   Search, 
   Calendar as CalendarIcon, 
@@ -79,6 +79,19 @@ const COLUMNS: ColumnConfig[] = [
   },
 ];
 
+function subscribeToResize(callback: () => void) {
+  window.addEventListener('resize', callback);
+  return () => window.removeEventListener('resize', callback);
+}
+
+function getIsNarrowViewport(): boolean {
+  return window.innerWidth < 768;
+}
+
+function getIsNarrowViewportServerSnapshot(): boolean {
+  return false; // SSR nunca conhece a largura real — mesmo valor usado na primeira renderização do cliente, evita hydration mismatch
+}
+
 export function OrdersKanban({
   orders,
   loading,
@@ -86,23 +99,25 @@ export function OrdersKanban({
   onMoveOrderToStage,
   onDeleteOrder,
 }: OrdersKanbanProps) {
-  const [viewMode, setViewMode] = useState<'KANBAN' | 'LIST'>(() => {
-    if (typeof window !== 'undefined' && window.innerWidth < 768) {
-      return 'LIST';
-    }
-    return 'KANBAN';
-  });
+  const isNarrowViewport = useSyncExternalStore(
+    subscribeToResize,
+    getIsNarrowViewport,
+    getIsNarrowViewportServerSnapshot
+  );
+
+  const [manualViewMode, setManualViewMode] = useState<'KANBAN' | 'LIST' | null>(null);
+  const [prevIsNarrow, setPrevIsNarrow] = useState(isNarrowViewport);
+
+  // Ajuste de estado durante o render (padrão oficial React para resetar estado derivado quando um valor externo muda — não é useEffect, não aciona react-hooks/set-state-in-effect)
+  if (isNarrowViewport !== prevIsNarrow) {
+    setPrevIsNarrow(isNarrowViewport);
+    setManualViewMode(null);
+  }
+
+  const viewMode: 'KANBAN' | 'LIST' = manualViewMode ?? (isNarrowViewport ? 'LIST' : 'KANBAN');
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState<'ALL' | 'WEEK' | 'LATE'>('ALL');
   const [dragOverColumn, setDragOverColumn] = useState<Order['stage'] | null>(null);
-
-  useEffect(() => {
-    function handleResize() {
-      setViewMode(window.innerWidth < 768 ? 'LIST' : 'KANBAN');
-    }
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   // Filtragem para o modo Kanban
   const filteredOrders = useMemo(() => {
@@ -168,7 +183,7 @@ export function OrdersKanban({
         {/* Toggle de Visualização: Colunas (Kanban) / Lista */}
         <div className="flex items-center gap-1 p-1 rounded-xl bg-white/5 border border-white/10 w-fit">
           <button
-            onClick={() => setViewMode('KANBAN')}
+            onClick={() => setManualViewMode('KANBAN')}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               viewMode === 'KANBAN'
                 ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
@@ -180,7 +195,7 @@ export function OrdersKanban({
           </button>
 
           <button
-            onClick={() => setViewMode('LIST')}
+            onClick={() => setManualViewMode('LIST')}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               viewMode === 'LIST'
                 ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'

@@ -1,6 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useForm, Controller, useWatch } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { X, Check } from 'lucide-react';
 
 interface QuickEntryModalProps {
@@ -10,6 +13,17 @@ interface QuickEntryModalProps {
   defaultDate?: string;
 }
 
+export const transactionSchema = z.object({
+  type: z.enum(['INCOME', 'EXPENSE']),
+  amountValue: z.number().positive('Informe um valor maior que zero.'),
+  date: z.string().min(1, 'Selecione a data.'),
+  description: z.string().trim().min(1, 'Preencha a descrição do pedido ou insumo.'),
+  isPartial: z.boolean(),
+  partialNote: z.string().optional(),
+});
+
+type TransactionFormData = z.infer<typeof transactionSchema>;
+
 function getTodayLocal(): string {
   const now = new Date();
   const y = now.getFullYear();
@@ -18,22 +32,45 @@ function getTodayLocal(): string {
   return `${y}-${m}-${d}`;
 }
 
+// Formata centavos para a máscara em reais (ex: 5000 -> 50,00)
+const formatCentsToBRL = (cents: number): string => {
+  return (cents / 100).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
 function QuickEntryModalContent({
   onClose,
   onSuccess,
   defaultDate,
 }: Omit<QuickEntryModalProps, 'isOpen'>) {
-  const [type, setType] = useState<'INCOME' | 'EXPENSE'>('INCOME');
   const [amountDisplay, setAmountDisplay] = useState('');
-  const [amountValue, setAmountValue] = useState<number>(0);
-  const [date, setDate] = useState(() => defaultDate || getTodayLocal());
-  const [description, setDescription] = useState('');
-  const [isPartial, setIsPartial] = useState(false);
-  const [partialNote, setPartialNote] = useState('50% pago');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [apiError, setApiError] = useState('');
 
-  const amountInputRef = useRef<HTMLInputElement>(null);
+  const amountInputRef = useRef<HTMLInputElement | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    control,
+    setValue,
+    formState: { errors },
+  } = useForm<TransactionFormData>({
+    resolver: zodResolver(transactionSchema),
+    defaultValues: {
+      type: 'INCOME',
+      amountValue: 0,
+      date: defaultDate || getTodayLocal(),
+      description: '',
+      isPartial: false,
+      partialNote: '50% pago',
+    },
+  });
+
+  const type = useWatch({ control, name: 'type' });
+  const isPartial = useWatch({ control, name: 'isPartial' });
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -42,21 +79,16 @@ function QuickEntryModalContent({
     return () => clearTimeout(timer);
   }, []);
 
-  // Formata centavos para a máscara em reais (ex: 5000 -> 50,00)
-  const formatCentsToBRL = (cents: number): string => {
-    return (cents / 100).toLocaleString('pt-BR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  };
-
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAmountChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    onChange: (val: number) => void
+  ) => {
     // Aceita ESTRITAMENTE números (remove qualquer letra ou caractere especial)
     const rawDigits = e.target.value.replace(/\D/g, '');
 
     if (!rawDigits) {
       setAmountDisplay('');
-      setAmountValue(0);
+      onChange(0);
       return;
     }
 
@@ -64,55 +96,44 @@ function QuickEntryModalContent({
     if (cents > 999999999) return; // Limite de R$ 9.999.999,99
 
     setAmountDisplay(formatCentsToBRL(cents));
-    setAmountValue(cents / 100);
+    onChange(cents / 100);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (amountValue <= 0) {
-      setError('Informe um valor maior que zero.');
-      return;
-    }
-    if (!description.trim()) {
-      setError('Preencha a descrição do pedido ou insumo.');
-      return;
-    }
-    if (!date) {
-      setError('Selecione a data.');
-      return;
-    }
-
+  const onSubmit = async (data: TransactionFormData) => {
     setLoading(true);
-    setError('');
+    setApiError('');
 
     try {
+      const isPartialActive = data.type === 'INCOME' && data.isPartial;
       const res = await fetch('/api/transactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          type,
-          amount: amountValue,
-          date,
-          description: description.trim(),
-          is_partial: isPartial,
-          partial_note: isPartial ? partialNote : null,
+          type: data.type,
+          amount: data.amountValue,
+          date: data.date,
+          description: data.description.trim(),
+          is_partial: isPartialActive,
+          partial_note: isPartialActive ? (data.partialNote?.trim() || '50% pago') : null,
         }),
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Erro ao salvar lançamento');
+        const resData = await res.json();
+        throw new Error(resData.error || 'Erro ao salvar lançamento');
       }
 
       onSuccess();
       onClose();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro de conexão.';
-      setError(msg);
+      setApiError(msg);
     } finally {
       setLoading(false);
     }
   };
+
+  const firstError = Object.values(errors)[0]?.message || apiError;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
@@ -128,12 +149,12 @@ function QuickEntryModalContent({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-5 space-y-4">
           {/* Switch de Tipo */}
           <div className="grid grid-cols-2 p-1 bg-white/5 rounded-xl border border-white/10">
             <button
               type="button"
-              onClick={() => setType('INCOME')}
+              onClick={() => setValue('type', 'INCOME', { shouldValidate: true })}
               className={`py-2 text-sm font-bold rounded-lg transition-all ${
                 type === 'INCOME'
                   ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
@@ -144,7 +165,7 @@ function QuickEntryModalContent({
             </button>
             <button
               type="button"
-              onClick={() => setType('EXPENSE')}
+              onClick={() => setValue('type', 'EXPENSE', { shouldValidate: true })}
               className={`py-2 text-sm font-bold rounded-lg transition-all ${
                 type === 'EXPENSE'
                   ? 'bg-rose-500 text-white shadow-md shadow-rose-500/20'
@@ -162,15 +183,23 @@ function QuickEntryModalContent({
             </label>
             <div className="relative inline-flex items-center justify-center gap-2 w-full">
               <span className="text-2xl font-extrabold text-[var(--text-muted)]">R$</span>
-              <input
-                ref={amountInputRef}
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                value={amountDisplay}
-                onChange={handleAmountChange}
-                placeholder="0,00"
-                className="w-56 text-left text-4xl font-extrabold bg-transparent text-white placeholder-white/20 focus:outline-none tabular-numbers"
+              <Controller
+                name="amountValue"
+                control={control}
+                render={({ field }) => (
+                  <input
+                    ref={(el) => {
+                      field.ref(el);
+                      amountInputRef.current = el;
+                    }}
+                    type="text"
+                    inputMode="numeric"
+                    value={amountDisplay}
+                    onChange={(e) => handleAmountChange(e, field.onChange)}
+                    placeholder="0,00"
+                    className="w-56 text-left text-4xl font-extrabold bg-transparent text-white placeholder-white/20 focus:outline-none tabular-numbers"
+                  />
+                )}
               />
             </div>
           </div>
@@ -182,8 +211,7 @@ function QuickEntryModalContent({
             </label>
             <input
               type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
+              {...register('date')}
               className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-emerald-500/50"
             />
           </div>
@@ -195,8 +223,7 @@ function QuickEntryModalContent({
             </label>
             <input
               type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              {...register('description')}
               placeholder="Ex: 3 troféus Banespinha, 100 chaveiros..."
               className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-[var(--text-dim)] focus:outline-none focus:border-emerald-500/50"
             />
@@ -211,8 +238,7 @@ function QuickEntryModalContent({
                 </span>
                 <input
                   type="checkbox"
-                  checked={isPartial}
-                  onChange={(e) => setIsPartial(e.target.checked)}
+                  {...register('isPartial')}
                   className="w-4 h-4 rounded accent-emerald-500 cursor-pointer"
                 />
               </label>
@@ -221,8 +247,7 @@ function QuickEntryModalContent({
                 <div className="mt-2">
                   <input
                     type="text"
-                    value={partialNote}
-                    onChange={(e) => setPartialNote(e.target.value)}
+                    {...register('partialNote')}
                     placeholder="Ex: 50% pago, 1/2 restante na entrega"
                     className="w-full px-3 py-1.5 text-xs rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 placeholder-amber-400/40 focus:outline-none"
                   />
@@ -231,9 +256,9 @@ function QuickEntryModalContent({
             </div>
           )}
 
-          {error && (
+          {firstError && (
             <div className="p-2.5 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-medium">
-              {error}
+              {firstError}
             </div>
           )}
 
