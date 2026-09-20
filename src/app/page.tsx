@@ -10,6 +10,7 @@ import { OrdersKanban } from '@/components/OrdersKanban';
 import { NewOrderModal } from '@/components/NewOrderModal';
 import { Order } from '@/components/OrderCard';
 import { Loader2, Plus, Sparkles } from 'lucide-react';
+import { formatCurrencyBRL } from '@/lib/formatters';
 
 export default function Home() {
   // Aba ativa: Fluxo de Caixa ou Pedidos & Produção (Padrão: Pedidos & Produção para exibir o novo dashboard)
@@ -33,6 +34,8 @@ export default function Home() {
   const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState<boolean>(false);
   const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
   const [deleteLoading, setDeleteLoading] = useState<boolean>(false);
+  const [deleteOrderTargetId, setDeleteOrderTargetId] = useState<number | null>(null);
+  const [deleteOrderLoading, setDeleteOrderLoading] = useState<boolean>(false);
 
   // Buscar Transações (Fluxo de Caixa)
   const fetchTransactions = useCallback(async () => {
@@ -187,20 +190,30 @@ export default function Home() {
     }
   };
 
-  const handleDeleteOrder = async (id: number) => {
-    if (!confirm('Deseja realmente remover este pedido?')) return;
-    
-    setOrders((prev) => prev.filter((o) => o.id !== id));
+  const handleDeleteOrder = (id: number) => {
+    setDeleteOrderTargetId(id);
+  };
+
+  const handleConfirmDeleteOrder = async () => {
+    if (!deleteOrderTargetId) return;
+    setDeleteOrderLoading(true);
     try {
-      await fetch(`/api/orders?id=${id}`, {
+      const res = await fetch(`/api/orders?id=${deleteOrderTargetId}`, {
         method: 'DELETE',
       });
-      fetchOrders();
+      if (res.ok) {
+        setDeleteOrderTargetId(null);
+        fetchOrders();
+      }
     } catch (err: unknown) {
       console.error('Erro ao excluir pedido:', err);
-      fetchOrders();
+    } finally {
+      setDeleteOrderLoading(false);
     }
   };
+
+  const deletingTransaction = transactions.find((t) => t.id === deleteTargetId);
+  const deletingOrder = orders.find((o) => o.id === deleteOrderTargetId);
 
   return (
     <main className="min-h-screen px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto pb-24">
@@ -312,6 +325,30 @@ export default function Home() {
         onClose={() => setDeleteTargetId(null)}
         onConfirm={handleConfirmDeleteTransaction}
         loading={deleteLoading}
+        title="Confirmar Exclusão"
+        description="Tem certeza que deseja excluir este lançamento do fluxo de caixa? Essa ação não pode ser desfeita."
+        itemName={deletingTransaction?.description}
+        itemSubtitle={
+          deletingTransaction
+            ? deletingTransaction.type === 'INCOME'
+              ? 'Entrada'
+              : 'Saída'
+            : undefined
+        }
+        itemValue={deletingTransaction ? formatCurrencyBRL(deletingTransaction.amount) : undefined}
+      />
+
+      {/* Modal de Confirmação de Exclusão (Pipeline de Pedidos) */}
+      <DeleteConfirmModal
+        isOpen={deleteOrderTargetId !== null}
+        onClose={() => setDeleteOrderTargetId(null)}
+        onConfirm={handleConfirmDeleteOrder}
+        loading={deleteOrderLoading}
+        title="Confirmar Exclusão"
+        description="Tem certeza que deseja remover este pedido do pipeline? Essa ação não pode ser desfeita."
+        itemName={deletingOrder?.client_name}
+        itemSubtitle={deletingOrder?.description}
+        itemValue={deletingOrder ? formatCurrencyBRL(deletingOrder.total_value) : undefined}
       />
     </main>
   );
