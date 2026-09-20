@@ -22,7 +22,7 @@ interface OrdersKanbanProps {
   orders: Order[];
   loading: boolean;
   onOpenNewOrder: () => void;
-  onRefresh: () => void;
+  onRefresh?: () => void;
   onMoveOrderToStage: (orderId: number, targetStage: Order['stage']) => void;
   onDeleteOrder: (id: number) => void;
 }
@@ -83,20 +83,25 @@ export function OrdersKanban({
   orders,
   loading,
   onOpenNewOrder,
-  onRefresh,
   onMoveOrderToStage,
   onDeleteOrder,
 }: OrdersKanbanProps) {
-  const [viewMode, setViewMode] = useState<'KANBAN' | 'LIST'>('KANBAN');
+  const [viewMode, setViewMode] = useState<'KANBAN' | 'LIST'>(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      return 'LIST';
+    }
+    return 'KANBAN';
+  });
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState<'ALL' | 'WEEK' | 'LATE'>('ALL');
   const [dragOverColumn, setDragOverColumn] = useState<Order['stage'] | null>(null);
 
-  // Detecção inicial para sugerir modo Lista em telas pequenas
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.innerWidth < 768) {
-      setViewMode('LIST');
+    function handleResize() {
+      setViewMode(window.innerWidth < 768 ? 'LIST' : 'KANBAN');
     }
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   // Filtragem para o modo Kanban

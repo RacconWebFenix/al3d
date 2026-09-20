@@ -36,7 +36,6 @@ export default function Home() {
 
   // Buscar Transações (Fluxo de Caixa)
   const fetchTransactions = useCallback(async () => {
-    setLoadingTransactions(true);
     try {
       const res = await fetch(`/api/transactions?month=${currentMonth}&year=${currentYear}`);
       if (res.ok) {
@@ -53,7 +52,6 @@ export default function Home() {
 
   // Buscar Pedidos (Kanban)
   const fetchOrders = useCallback(async () => {
-    setLoadingOrders(true);
     try {
       const res = await fetch('/api/orders');
       if (res.ok) {
@@ -68,9 +66,48 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    fetchTransactions();
-    fetchOrders();
-  }, [fetchTransactions, fetchOrders]);
+    let ignore = false;
+
+    async function loadTransactions() {
+      try {
+        const res = await fetch(`/api/transactions?month=${currentMonth}&year=${currentYear}`);
+        if (!ignore && res.ok) {
+          const data = await res.json();
+          setTransactions(data.transactions || []);
+          setSummary(data.summary || { totalIncome: 0, totalExpense: 0, netTotal: 0 });
+        }
+      } catch (err) {
+        console.error('Falha ao buscar transações:', err);
+      } finally {
+        if (!ignore) {
+          setLoadingTransactions(false);
+        }
+      }
+    }
+
+    async function loadOrders() {
+      try {
+        const res = await fetch('/api/orders');
+        if (!ignore && res.ok) {
+          const data = await res.json();
+          setOrders(data.orders || []);
+        }
+      } catch (err) {
+        console.error('Falha ao buscar pedidos:', err);
+      } finally {
+        if (!ignore) {
+          setLoadingOrders(false);
+        }
+      }
+    }
+
+    loadTransactions();
+    loadOrders();
+
+    return () => {
+      ignore = true;
+    };
+  }, [currentMonth, currentYear]);
 
   // Atalho global de teclado: pressionar 'N' abre o modal da aba ativa
   useEffect(() => {
@@ -92,6 +129,7 @@ export default function Home() {
 
   // Navegação de Mês no Fluxo de Caixa
   const handlePrevMonth = () => {
+    setLoadingTransactions(true);
     if (currentMonth === 1) {
       setCurrentMonth(12);
       setCurrentYear((prev) => prev - 1);
@@ -101,6 +139,7 @@ export default function Home() {
   };
 
   const handleNextMonth = () => {
+    setLoadingTransactions(true);
     if (currentMonth === 12) {
       setCurrentMonth(1);
       setCurrentYear((prev) => prev + 1);

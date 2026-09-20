@@ -1,10 +1,20 @@
-const { Pool } = require('pg');
+import { Pool } from 'pg';
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://al3d_user:al3d_password@127.0.0.1:5433/al3d_db?schema=public',
-});
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL não definida');
+}
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
-async function init() {
+interface InitialTransaction {
+  type: 'INCOME' | 'EXPENSE';
+  amount: number;
+  date: string;
+  description: string;
+  is_partial: boolean;
+  partial_note?: string;
+}
+
+export async function init(): Promise<void> {
   console.log('Iniciando setup do banco de dados AL3D...');
 
   await pool.query(`
@@ -28,7 +38,7 @@ async function init() {
   const countRes = await pool.query('SELECT COUNT(*) FROM transactions');
   if (parseInt(countRes.rows[0].count, 10) === 0) {
     console.log('Populando dados iniciais de Setembro da AL3D...');
-    const initialData = [
+    const initialData: InitialTransaction[] = [
       { type: 'INCOME', amount: 120.00, date: '2024-09-06', description: '3 troféus Banespinha', is_partial: false },
       { type: 'INCOME', amount: 400.00, date: '2024-09-11', description: '100 chaveiros 4 rodas', is_partial: false },
       { type: 'INCOME', amount: 60.00, date: '2024-09-14', description: 'glock do luis', is_partial: false },

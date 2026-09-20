@@ -10,16 +10,23 @@ interface QuickEntryModalProps {
   defaultDate?: string;
 }
 
-export function QuickEntryModal({
-  isOpen,
+function getTodayLocal(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function QuickEntryModalContent({
   onClose,
   onSuccess,
   defaultDate,
-}: QuickEntryModalProps) {
+}: Omit<QuickEntryModalProps, 'isOpen'>) {
   const [type, setType] = useState<'INCOME' | 'EXPENSE'>('INCOME');
   const [amountDisplay, setAmountDisplay] = useState('');
   const [amountValue, setAmountValue] = useState<number>(0);
-  const [date, setDate] = useState('');
+  const [date, setDate] = useState(() => defaultDate || getTodayLocal());
   const [description, setDescription] = useState('');
   const [isPartial, setIsPartial] = useState(false);
   const [partialNote, setPartialNote] = useState('50% pago');
@@ -27,6 +34,13 @@ export function QuickEntryModal({
   const [error, setError] = useState('');
 
   const amountInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      amountInputRef.current?.focus();
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Formata centavos para a máscara em reais (ex: 5000 -> 50,00)
   const formatCentsToBRL = (cents: number): string => {
@@ -52,28 +66,6 @@ export function QuickEntryModal({
     setAmountDisplay(formatCentsToBRL(cents));
     setAmountValue(cents / 100);
   };
-
-  useEffect(() => {
-    if (isOpen) {
-      const now = new Date();
-      const y = now.getFullYear();
-      const m = String(now.getMonth() + 1).padStart(2, '0');
-      const d = String(now.getDate()).padStart(2, '0');
-      const todayLocal = `${y}-${m}-${d}`;
-
-      setDate(defaultDate || todayLocal);
-      setAmountDisplay('');
-      setAmountValue(0);
-      setDescription('');
-      setIsPartial(false);
-      setError('');
-      setTimeout(() => {
-        amountInputRef.current?.focus();
-      }, 100);
-    }
-  }, [isOpen, defaultDate]);
-
-  if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -270,5 +262,21 @@ export function QuickEntryModal({
         </form>
       </div>
     </div>
+  );
+}
+
+export function QuickEntryModal({
+  isOpen,
+  onClose,
+  onSuccess,
+  defaultDate,
+}: QuickEntryModalProps) {
+  if (!isOpen) return null;
+  return (
+    <QuickEntryModalContent
+      onClose={onClose}
+      onSuccess={onSuccess}
+      defaultDate={defaultDate}
+    />
   );
 }

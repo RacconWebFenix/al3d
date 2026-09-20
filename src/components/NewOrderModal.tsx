@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Calendar, Check, Sparkles } from 'lucide-react';
+import { X } from 'lucide-react';
 import { formatCurrencyBRL } from '@/lib/formatters';
 
 interface NewOrderModalProps {
@@ -20,18 +20,34 @@ const STAGES: { key: OrderStage; label: string; activeClass: string }[] = [
   { key: 'ENTREGUE', label: 'Entregue', activeClass: 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/30' },
 ];
 
-export function NewOrderModal({ isOpen, onClose, onSuccess }: NewOrderModalProps) {
+function getDefaultDeliveryDate(): string {
+  const target = new Date();
+  target.setDate(target.getDate() + 5);
+  const y = target.getFullYear();
+  const m = String(target.getMonth() + 1).padStart(2, '0');
+  const d = String(target.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function NewOrderModalContent({ onClose, onSuccess }: Omit<NewOrderModalProps, 'isOpen'>) {
   const [clientName, setClientName] = useState('');
   const [description, setDescription] = useState('');
   const [stage, setStage] = useState<OrderStage>('IMPRIMINDO');
-  const [deliveryDate, setDeliveryDate] = useState('');
-  const [amountDisplay, setAmountDisplay] = useState('');
-  const [amountValue, setAmountValue] = useState<number>(0);
+  const [deliveryDate, setDeliveryDate] = useState(getDefaultDeliveryDate);
+  const [amountDisplay, setAmountDisplay] = useState('400,00');
+  const [amountValue, setAmountValue] = useState<number>(400.0);
   const [isPartialPaid, setIsPartialPaid] = useState<boolean>(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const clientInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      clientInputRef.current?.focus();
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Formatar centavos para BRL
   const formatCentsToBRL = (cents: number): string => {
@@ -54,32 +70,6 @@ export function NewOrderModal({ isOpen, onClose, onSuccess }: NewOrderModalProps
     setAmountDisplay(formatCentsToBRL(cents));
     setAmountValue(cents / 100);
   };
-
-  useEffect(() => {
-    if (isOpen) {
-      // Data padrão: hoje + 5 dias para prazo de entrega
-      const target = new Date();
-      target.setDate(target.getDate() + 5);
-      const y = target.getFullYear();
-      const m = String(target.getMonth() + 1).padStart(2, '0');
-      const d = String(target.getDate()).padStart(2, '0');
-
-      setClientName('');
-      setDescription('');
-      setStage('IMPRIMINDO');
-      setDeliveryDate(`${y}-${m}-${d}`);
-      setAmountDisplay('400,00');
-      setAmountValue(400.0);
-      setIsPartialPaid(true);
-      setError('');
-
-      setTimeout(() => {
-        clientInputRef.current?.focus();
-      }, 100);
-    }
-  }, [isOpen]);
-
-  if (!isOpen) return null;
 
   const halfValue = amountValue > 0 ? amountValue / 2 : 0;
 
@@ -290,4 +280,9 @@ export function NewOrderModal({ isOpen, onClose, onSuccess }: NewOrderModalProps
       </div>
     </div>
   );
+}
+
+export function NewOrderModal({ isOpen, onClose, onSuccess }: NewOrderModalProps) {
+  if (!isOpen) return null;
+  return <NewOrderModalContent onClose={onClose} onSuccess={onSuccess} />;
 }
