@@ -9,8 +9,11 @@ function getPool(): Pool {
       process.env.DATABASE_URL ||
       process.env.DATABASE_URL_POSTGRES_URL ||
       process.env.POSTGRES_URL ||
-      process.env.POSTGRES_PRISMA_URL ||
-      'postgresql://al3d_user:al3d_password@127.0.0.1:5433/al3d_db?schema=public';
+      process.env.POSTGRES_PRISMA_URL;
+
+    if (!connectionString) {
+      throw new Error('DATABASE_URL não definida');
+    }
 
     const isLocal =
       connectionString.includes('127.0.0.1') ||
@@ -63,34 +66,6 @@ async function ensureTableExists() {
       CREATE INDEX IF NOT EXISTS idx_orders_stage ON orders(stage);
       CREATE INDEX IF NOT EXISTS idx_orders_delivery_date ON orders(delivery_date);
     `);
-
-    // Seed de pedidos iniciais se a tabela estiver vazia
-    const countRes = await pool.query('SELECT COUNT(*) FROM orders');
-    if (parseInt(countRes.rows[0].count, 10) === 0) {
-      const initialOrders = [
-        { client: 'Banespinha', desc: '3x Troféus Torneio', stage: 'COTACAO', val: 400, paid: 200, partial: true, days: 5 },
-        { client: 'Banespinha', desc: '3x Troféus Torneio', stage: 'COTACAO', val: 400, paid: 400, partial: false, days: 7 },
-        { client: 'Luis Glock', desc: '100x Chaveiros Logo', stage: 'MODELANDO', val: 400, paid: 200, partial: true, days: 3 },
-        { client: 'Luis Glock', desc: '1x Flallus, Taria', stage: 'MODELANDO', val: 200, paid: 200, partial: false, days: 4 },
-        { client: 'Yudi Chaveiros', desc: '100x Chaveiros Logo', stage: 'IMPRIMINDO', val: 400, paid: 200, partial: true, days: 2 },
-        { client: 'Banespinha', desc: '100x Chaveiros Logo', stage: 'IMPRIMINDO', val: 400, paid: 400, partial: false, days: 3 },
-        { client: 'Yudi Chaveiros', desc: '100x Chaveiros Logo', stage: 'PAGAMENTO', val: 400, paid: 400, partial: false, days: 1 },
-        { client: 'Yudi Chaveiros', desc: '100x Chaveiros Logo', stage: 'PAGAMENTO', val: 250, paid: 250, partial: false, days: 2 },
-        { client: 'Luis Glock', desc: '3x Troféus Torneio', stage: 'ENTREGUE', val: 400, paid: 400, partial: false, days: -1 },
-        { client: 'Luis Glock', desc: '10x Troféus Torneio', stage: 'ENTREGUE', val: 400, paid: 400, partial: false, days: -2 }
-      ];
-
-      for (const ord of initialOrders) {
-        const d = new Date();
-        d.setDate(d.getDate() + ord.days);
-        const deliveryStr = d.toISOString().split('T')[0];
-
-        await pool.query(`
-          INSERT INTO orders (client_name, description, stage, total_value, paid_amount, is_partial_paid, delivery_date)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
-        `, [ord.client, ord.desc, ord.stage, ord.val, ord.paid, ord.partial, deliveryStr]);
-      }
-    }
 
     isTableChecked = true;
   } catch (err) {
