@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireSession } from '@/lib/auth';
 import pool, { QueryParam } from '@/lib/db';
 
 interface TransactionDbRow {
@@ -14,6 +15,9 @@ interface TransactionDbRow {
 }
 
 export async function GET(request: Request) {
+  const denied = await requireSession(request);
+  if (denied) return denied;
+
   try {
     const { searchParams } = new URL(request.url);
     const month = parseInt(searchParams.get('month') || '', 10);
@@ -70,6 +74,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const denied = await requireSession(request);
+  if (denied) return denied;
+
   try {
     const body = await request.json();
     const { type, amount, date, description, is_partial, partial_note, total_value } = body;
@@ -115,6 +122,9 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const denied = await requireSession(request);
+  if (denied) return denied;
+
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');

@@ -5,6 +5,7 @@ import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { X, Check } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 interface QuickEntryModalProps {
   isOpen: boolean;
@@ -48,6 +49,7 @@ function QuickEntryModalContent({
   const [amountDisplay, setAmountDisplay] = useState('');
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState('');
+  const router = useRouter();
 
   const amountInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -117,6 +119,11 @@ function QuickEntryModalContent({
           partial_note: isPartialActive ? (data.partialNote?.trim() || '50% pago') : null,
         }),
       });
+
+      if (res.status === 401) {
+        router.replace('/login');
+        return;
+      }
 
       if (!res.ok) {
         const resData = await res.json();
