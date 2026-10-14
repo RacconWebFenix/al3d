@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Trash2, Tag, Calendar, AlertCircle } from 'lucide-react';
+import { Trash2, AlertCircle } from 'lucide-react';
 import { formatCurrency, formatDateShort } from '@/lib/formatters';
 
 export interface Transaction {
