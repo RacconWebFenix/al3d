@@ -5,6 +5,7 @@ import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { formatCurrencyBRL } from '@/lib/formatters';
 
 interface NewOrderModalProps {
@@ -54,6 +55,7 @@ function NewOrderModalContent({ onClose, onSuccess }: Omit<NewOrderModalProps, '
   const [amountDisplay, setAmountDisplay] = useState('400,00');
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState('');
+  const router = useRouter();
 
   const clientInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -129,6 +131,11 @@ function NewOrderModalContent({ onClose, onSuccess }: Omit<NewOrderModalProps, '
           delivery_date: data.deliveryDate,
         }),
       });
+
+      if (res.status === 401) {
+        router.replace('/login');
+        return;
+      }
 
       if (!res.ok) {
         const resData = await res.json();
