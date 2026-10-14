@@ -6,6 +6,10 @@
   --bg-card-hover: rgba(28, 36, 56, 0.85);
   --border-subtle: rgba(255, 255, 255, 0.08);
   --border-focus: rgba(16, 185, 129, 0.5);
+  --bg-input: rgba(9, 13, 22, 0.6);
+  --border-error: rgba(244, 63, 94, 0.5);
+  --shadow-card: 0 24px 48px rgba(0, 0, 0, 0.4);
+  --bg-card-solid: #101522;
   
   --emerald-main: #10b981;
   --emerald-glow: rgba(16, 185, 129, 0.25);
@@ -86,4 +90,17 @@ body {
 /* Transição suave em botões e linhas */
 button, input, select, textarea {
   transition: all 0.15s ease-in-out;
+}
+
+@theme {
+  --animate-glow-pulse: glow-pulse 3s ease-in-out infinite alternate;
+
+  @keyframes glow-pulse {
+    from {
+      scale: 0.1;
+    }
+    to {
+      scale: 1;
+    }
+  }
 }

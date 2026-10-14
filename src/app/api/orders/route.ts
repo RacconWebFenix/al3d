@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireSession } from '@/lib/auth';
 import pool, { QueryParam } from '@/lib/db';
 
 interface OrderDbRow {
@@ -16,6 +17,9 @@ interface OrderDbRow {
 }
 
 export async function GET(request: Request) {
+  const denied = await requireSession(request);
+  if (denied) return denied;
+
   try {
     const { searchParams } = new URL(request.url);
     const stage = searchParams.get('stage');
@@ -62,6 +66,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const denied = await requireSession(request);
+  if (denied) return denied;
+
   try {
     const body = await request.json();
     const { client_name, description, stage, total_value, paid_amount, is_partial_paid, delivery_date, notes } = body;
@@ -106,6 +113,9 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const denied = await requireSession(request);
+  if (denied) return denied;
+
   try {
     const body = await request.json();
     const { id, stage, paid_amount, is_partial_paid, notes, delivery_date, description, client_name, total_value } = body;
@@ -179,6 +189,9 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const denied = await requireSession(request);
+  if (denied) return denied;
+
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');

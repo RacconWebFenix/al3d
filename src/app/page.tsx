@@ -10,9 +10,11 @@ import { OrdersKanban } from '@/components/OrdersKanban';
 import { NewOrderModal } from '@/components/NewOrderModal';
 import { Order } from '@/components/OrderCard';
 import { Loader2, Plus, Sparkles } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { formatCurrencyBRL } from '@/lib/formatters';
 
 export default function Home() {
+  const router = useRouter();
   // Aba ativa: Fluxo de Caixa ou Pedidos & Produção (Padrão: Pedidos & Produção para exibir o novo dashboard)
   const [activeTab, setActiveTab] = useState<AppTab>('ORDERS');
 
@@ -41,6 +43,10 @@ export default function Home() {
   const fetchTransactions = useCallback(async () => {
     try {
       const res = await fetch(`/api/transactions?month=${currentMonth}&year=${currentYear}`);
+      if (res.status === 401) {
+        router.replace('/login');
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         setTransactions(data.transactions || []);
@@ -51,12 +57,16 @@ export default function Home() {
     } finally {
       setLoadingTransactions(false);
     }
-  }, [currentMonth, currentYear]);
+  }, [currentMonth, currentYear, router]);
 
   // Buscar Pedidos (Kanban)
   const fetchOrders = useCallback(async () => {
     try {
       const res = await fetch('/api/orders');
+      if (res.status === 401) {
+        router.replace('/login');
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         setOrders(data.orders || []);
@@ -66,7 +76,7 @@ export default function Home() {
     } finally {
       setLoadingOrders(false);
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     let ignore = false;
@@ -74,6 +84,10 @@ export default function Home() {
     async function loadTransactions() {
       try {
         const res = await fetch(`/api/transactions?month=${currentMonth}&year=${currentYear}`);
+        if (res.status === 401) {
+          router.replace('/login');
+          return;
+        }
         if (!ignore && res.ok) {
           const data = await res.json();
           setTransactions(data.transactions || []);
@@ -91,6 +105,10 @@ export default function Home() {
     async function loadOrders() {
       try {
         const res = await fetch('/api/orders');
+        if (res.status === 401) {
+          router.replace('/login');
+          return;
+        }
         if (!ignore && res.ok) {
           const data = await res.json();
           setOrders(data.orders || []);
@@ -110,7 +128,7 @@ export default function Home() {
     return () => {
       ignore = true;
     };
-  }, [currentMonth, currentYear]);
+  }, [currentMonth, currentYear, router]);
 
   // Atalho global de teclado: pressionar 'N' abre o modal da aba ativa
   useEffect(() => {
@@ -159,6 +177,10 @@ export default function Home() {
       const res = await fetch(`/api/transactions?id=${deleteTargetId}`, {
         method: 'DELETE',
       });
+      if (res.status === 401) {
+        router.replace('/login');
+        return;
+      }
       if (res.ok) {
         setDeleteTargetId(null);
         fetchTransactions();
@@ -178,11 +200,15 @@ export default function Home() {
     );
 
     try {
-      await fetch('/api/orders', {
+      const res = await fetch('/api/orders', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: orderId, stage: targetStage }),
       });
+      if (res.status === 401) {
+        router.replace('/login');
+        return;
+      }
       fetchOrders();
     } catch (err: unknown) {
       console.error('Erro ao mover pedido de etapa:', err);
@@ -201,6 +227,10 @@ export default function Home() {
       const res = await fetch(`/api/orders?id=${deleteOrderTargetId}`, {
         method: 'DELETE',
       });
+      if (res.status === 401) {
+        router.replace('/login');
+        return;
+      }
       if (res.ok) {
         setDeleteOrderTargetId(null);
         fetchOrders();

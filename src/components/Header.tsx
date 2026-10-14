@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -9,7 +10,7 @@ import {
   Wallet, 
   FileText, 
   Bell, 
-  User,
+  LogOut,
   ChevronDown
 } from 'lucide-react';
 import { MONTH_NAMES } from '@/lib/formatters';
@@ -37,6 +38,7 @@ export function Header({
   onOpenNewTransaction,
   onOpenNewOrder,
 }: HeaderProps) {
+  const router = useRouter();
   const monthName = MONTH_NAMES[currentMonth - 1] || '';
 
   return (
@@ -103,6 +105,19 @@ export function Header({
             title="Notificações"
           >
             <Bell className="w-4 h-4" />
+          </button>
+
+          <button
+            type="button"
+            aria-label="Sair"
+            className="flex items-center justify-center rounded-xl p-2 text-[var(--text-muted)] transition-colors hover:text-[var(--coral-main)]"
+            onClick={async () => {
+              await fetch('/api/auth/logout', { method: 'POST' });
+              router.replace('/login');
+              router.refresh();
+            }}
+          >
+            <LogOut className="h-4 w-4" />
           </button>
 
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs font-medium text-white">
