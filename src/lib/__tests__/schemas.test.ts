@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { orderSchema } from '@/components/NewOrderModal';
 import { transactionSchema } from '@/components/QuickEntryModal';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { buildOrderEditPayload, computePaidAmount, orderPatchSchema } from '@/lib/orderSchemas';
+import { buildOrderEditPayload, buildOrderSingleFieldPayload, computePaidAmount, orderPatchSchema } from '@/lib/orderSchemas';
 
 describe('orderSchema (NewOrderModal)', () => {
   const validOrder = {
@@ -212,6 +212,79 @@ describe('computePaidAmount e buildOrderEditPayload', () => {
       is_partial_paid: true,
       paid_amount: 300,
     });
+  });
+});
+
+describe('buildOrderSingleFieldPayload', () => {
+  const orderBase = {
+    id: 7,
+    client_name: 'Marcos Banespinha',
+    description: 'Troféu 3D em PLA Silk',
+    stage: 'COTACAO' as const,
+    total_value: 400,
+    paid_amount: 200,
+    is_partial_paid: true,
+    delivery_date: '2026-09-25',
+    notes: 'Prazo urgente',
+  };
+
+  it('descrição alterada → só description', () => {
+    const payload = buildOrderSingleFieldPayload(orderBase, {
+      field: 'description',
+      value: 'Nova descrição do troféu',
+    });
+    expect(payload).toEqual({ description: 'Nova descrição do troféu' });
+  });
+
+  it('cliente igual ao original → payload vazio', () => {
+    const payload = buildOrderSingleFieldPayload(orderBase, {
+      field: 'client_name',
+      value: '  Marcos Banespinha  ',
+    });
+    expect(payload).toEqual({});
+  });
+
+  it('pagamento sem mudança → payload vazio (sem paid_amount)', () => {
+    const payload = buildOrderSingleFieldPayload(orderBase, {
+      field: 'payment',
+      total_value: 400,
+      is_partial_paid: true,
+    });
+    expect(payload).toEqual({});
+  });
+
+  it('valor alterado → total_value + is_partial_paid + paid_amount recalculado com a etapa atual', () => {
+    const payload = buildOrderSingleFieldPayload(orderBase, {
+      field: 'payment',
+      total_value: 600,
+      is_partial_paid: true,
+    });
+    expect(payload).toEqual({
+      total_value: 600,
+      is_partial_paid: true,
+      paid_amount: 300,
+    });
+  });
+
+  it('só sinal alternado → recalcula paid_amount', () => {
+    const payload = buildOrderSingleFieldPayload(orderBase, {
+      field: 'payment',
+      total_value: 400,
+      is_partial_paid: false,
+    });
+    expect(payload).toEqual({
+      total_value: 400,
+      is_partial_paid: false,
+      paid_amount: 0,
+    });
+  });
+
+  it('prazo alterado → só delivery_date', () => {
+    const payload = buildOrderSingleFieldPayload(orderBase, {
+      field: 'delivery_date',
+      value: '2026-10-10',
+    });
+    expect(payload).toEqual({ delivery_date: '2026-10-10' });
   });
 });
 

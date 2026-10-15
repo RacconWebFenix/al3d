@@ -95,3 +95,45 @@ export function buildOrderEditPayload(
 
   return payload;
 }
+
+export type SingleFieldEdit =
+  | { field: 'client_name'; value: string }
+  | { field: 'description'; value: string }
+  | { field: 'delivery_date'; value: string }
+  | { field: 'payment'; total_value: number; is_partial_paid: boolean };
+
+export function buildOrderSingleFieldPayload(
+  order: {
+    client_name: string;
+    description: string;
+    stage: OrderStage;
+    total_value: number;
+    paid_amount: number;
+    is_partial_paid: boolean;
+    delivery_date: string;
+  },
+  edit: SingleFieldEdit
+): Record<string, string | number | boolean> {
+  const base = {
+    clientName: order.client_name,
+    description: order.description,
+    deliveryDate: order.delivery_date,
+    amountValue: order.total_value,
+    isPartialPaid: order.is_partial_paid,
+  };
+
+  switch (edit.field) {
+    case 'client_name':
+      return edit.value.trim() === order.client_name.trim() ? {} : buildOrderEditPayload(order, { ...base, clientName: edit.value }, { clientName: true });
+    case 'description':
+      return edit.value.trim() === order.description.trim() ? {} : buildOrderEditPayload(order, { ...base, description: edit.value }, { description: true });
+    case 'delivery_date':
+      return edit.value === order.delivery_date ? {} : buildOrderEditPayload(order, { ...base, deliveryDate: edit.value }, { deliveryDate: true });
+    case 'payment': {
+      const nextTotal = Number(edit.total_value) || 0;
+      const nextPartial = Boolean(edit.is_partial_paid);
+      if (nextTotal === Number(order.total_value) && nextPartial === Boolean(order.is_partial_paid)) return {};
+      return buildOrderEditPayload(order, { ...base, amountValue: nextTotal, isPartialPaid: nextPartial }, { amountValue: true, isPartialPaid: true });
+    }
+  }
+}

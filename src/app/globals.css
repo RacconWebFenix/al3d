@@ -88,7 +88,7 @@ body {
   }
 }
 
-.modal-content-animation {
+@utility modal-content-animation {
   animation: modalFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
@@ -99,6 +99,7 @@ button, input, select, textarea {
 
 @theme {
   --animate-glow-pulse: glow-pulse 3s ease-in-out infinite alternate;
+  --animate-sheet-slide-up: sheet-slide-up 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 
   @keyframes glow-pulse {
     from {
@@ -106,6 +107,15 @@ button, input, select, textarea {
     }
     to {
       scale: 1;
+    }
+  }
+
+  @keyframes sheet-slide-up {
+    from {
+      translate: 0 100%;
+    }
+    to {
+      translate: 0 0;
     }
   }
 }

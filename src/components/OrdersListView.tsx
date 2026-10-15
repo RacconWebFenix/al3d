@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Order } from './OrderCard';
 import { formatCurrencyBRL } from '@/lib/formatters';
+import { STAGES_CONFIG } from '@/lib/orderDisplay';
 
 interface OrdersListViewProps {
   orders: Order[];
@@ -26,44 +27,6 @@ interface OrdersListViewProps {
 }
 
 type StageFilter = 'ALL' | Order['stage'];
-
-const STAGES_CONFIG: { key: Order['stage']; label: string; shortLabel: string; badgeClasses: string; glowBorder: string }[] = [
-  {
-    key: 'COTACAO',
-    label: 'Cotação',
-    shortLabel: 'Cotação',
-    badgeClasses: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30',
-    glowBorder: 'border-cyan-500/40',
-  },
-  {
-    key: 'MODELANDO',
-    label: 'Modelando',
-    shortLabel: 'Modelando',
-    badgeClasses: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
-    glowBorder: 'border-amber-500/40',
-  },
-  {
-    key: 'IMPRIMINDO',
-    label: 'Imprimindo',
-    shortLabel: 'Imprimindo',
-    badgeClasses: 'bg-cyan-400/15 text-cyan-300 border-cyan-400/40 shadow-[0_0_12px_rgba(6,182,212,0.18)]',
-    glowBorder: 'border-cyan-400/50',
-  },
-  {
-    key: 'PAGAMENTO',
-    label: 'Pagamento',
-    shortLabel: 'Pagamento',
-    badgeClasses: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
-    glowBorder: 'border-purple-500/40',
-  },
-  {
-    key: 'ENTREGUE',
-    label: 'Entregue',
-    shortLabel: 'Entregue',
-    badgeClasses: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
-    glowBorder: 'border-emerald-500/40',
-  },
-];
 
 export function OrdersListView({
   orders,
@@ -316,13 +279,13 @@ export function OrdersListView({
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <button
                       type="button"
-                      aria-label="Ver e editar pedido"
+                      aria-label="Ver detalhes"
                       onClick={(e) => {
                         e.stopPropagation();
                         onView(order);
                       }}
-                      className="flex items-center justify-center w-11 h-11 rounded-xl border border-[var(--border-focus)] bg-[var(--emerald-bg)] text-[var(--emerald-main)] transition-all"
-                      title="Ver e editar pedido"
+                      className="min-w-[40px] min-h-[40px] flex items-center justify-center p-2 rounded-lg text-[var(--text-dim)] hover:text-[var(--text-main)] active:text-[var(--text-main)] transition-colors"
+                      title="Ver detalhes"
                     >
                       <Eye className="w-4 h-4" />
                     </button>
@@ -340,11 +303,12 @@ export function OrdersListView({
                     {/* Botão de Excluir */}
                     <button
                       type="button"
+                      aria-label="Excluir pedido"
                       onClick={() => onDeleteOrder(order.id)}
-                      className="flex items-center justify-center w-11 h-11 rounded-xl border border-[var(--border-subtle)] text-[var(--text-dim)] hover:text-[var(--coral-main)] hover:bg-[var(--coral-bg)] transition-all"
+                      className="min-w-[40px] min-h-[40px] flex items-center justify-center p-2 rounded-lg text-[var(--text-dim)] hover:text-[var(--coral-main)] active:text-[var(--coral-main)] transition-colors"
                       title="Excluir pedido"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -429,6 +393,7 @@ export function OrdersListView({
 
             <button
               type="button"
+              aria-label="Ver detalhes"
               onClick={() => {
                 onView(selectedOrderForStageChange);
                 setSelectedOrderForStageChange(null);
@@ -439,7 +404,7 @@ export function OrdersListView({
                 <span className="w-7 h-7 rounded-lg bg-[var(--emerald-bg)] flex items-center justify-center">
                   <Eye className="w-4 h-4" />
                 </span>
-                <span>Ver / editar pedido</span>
+                <span>Ver detalhes</span>
               </div>
               <ChevronRight className="w-4 h-4 opacity-80" />
             </button>

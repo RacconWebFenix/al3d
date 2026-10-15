@@ -8,6 +8,7 @@ import { QuickEntryModal } from '@/components/QuickEntryModal';
 import { DeleteConfirmModal } from '@/components/DeleteConfirmModal';
 import { OrdersKanban } from '@/components/OrdersKanban';
 import { NewOrderModal } from '@/components/NewOrderModal';
+import { OrderDetailSheet } from '@/components/OrderDetailSheet';
 import { Order } from '@/components/OrderCard';
 import { Loader2, Plus, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -30,7 +31,7 @@ export default function Home() {
   // Estado dos Pedidos
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState<boolean>(true);
-  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
 
   // Modais
   const [isNewModalOpen, setIsNewModalOpen] = useState<boolean>(false);
@@ -218,8 +219,7 @@ export default function Home() {
   };
 
   const handleViewOrder = (order: Order) => {
-    setEditingOrder(order);
-    setIsNewOrderModalOpen(true);
+    setViewingOrder(order);
   };
 
   const handleDeleteOrder = (id: number) => {
@@ -271,10 +271,7 @@ export default function Home() {
           <OrdersKanban
             orders={orders}
             loading={loadingOrders}
-            onOpenNewOrder={() => {
-              setEditingOrder(null);
-              setIsNewOrderModalOpen(true);
-            }}
+            onOpenNewOrder={() => setIsNewOrderModalOpen(true)}
             onRefresh={fetchOrders}
             onMoveOrderToStage={handleMoveOrderToStage}
             onDeleteOrder={handleDeleteOrder}
@@ -354,15 +351,20 @@ export default function Home() {
 
       {/* Modal de Novo Pedido (Pipeline de Produção) */}
       <NewOrderModal
-        key={editingOrder?.id ?? 'new-order'}
         isOpen={isNewOrderModalOpen}
-        order={editingOrder ?? undefined}
-        onClose={() => {
-          setIsNewOrderModalOpen(false);
-          setEditingOrder(null);
-        }}
+        onClose={() => setIsNewOrderModalOpen(false)}
         onSuccess={fetchOrders}
       />
+
+      {/* Painel de Detalhes / Edição de Pedido */}
+      {viewingOrder && (
+        <OrderDetailSheet
+          key={viewingOrder.id}
+          order={viewingOrder}
+          onClose={() => setViewingOrder(null)}
+          onSuccess={fetchOrders}
+        />
+      )}
 
       {/* Modal de Confirmação de Exclusão (Fluxo de Caixa) */}
       <DeleteConfirmModal
