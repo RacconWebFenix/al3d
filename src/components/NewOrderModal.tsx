@@ -7,11 +7,14 @@ import { z } from 'zod';
 import { X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { formatCurrencyBRL } from '@/lib/formatters';
+import { buildOrderEditPayload, computePaidAmount } from '@/lib/orderSchemas';
+import { type Order } from '@/components/OrderCard';
 
 interface NewOrderModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  order?: Order;
 }
 
 export const orderSchema = z.object({
@@ -51,8 +54,12 @@ const formatCentsToBRL = (cents: number): string => {
   });
 };
 
-function NewOrderModalContent({ onClose, onSuccess }: Omit<NewOrderModalProps, 'isOpen'>) {
-  const [amountDisplay, setAmountDisplay] = useState('400,00');
+function NewOrderModalContent({ onClose, onSuccess, order }: Omit<NewOrderModalProps, 'isOpen'>) {
+  const isEditing = Boolean(order);
+  const [amountDisplay, setAmountDisplay] = useState(() => {
+    const initialValue = order ? Number(order.total_value) || 0 : 400;
+    return formatCentsToBRL(Math.round(initialValue * 100));
+  });
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState('');
   const router = useRouter();
@@ -64,17 +71,26 @@ function NewOrderModalContent({ onClose, onSuccess }: Omit<NewOrderModalProps, '
     handleSubmit,
     control,
     setValue,
-    formState: { errors },
+    formState: { errors, dirtyFields },
   } = useForm<OrderFormData>({
     resolver: zodResolver(orderSchema),
-    defaultValues: {
-      clientName: '',
-      description: '',
-      stage: 'COTACAO',
-      deliveryDate: getDefaultDeliveryDate(),
-      amountValue: 400.0,
-      isPartialPaid: true,
-    },
+    defaultValues: order
+      ? {
+          clientName: order.client_name,
+          description: order.description,
+          stage: order.stage,
+          deliveryDate: order.delivery_date,
+          amountValue: Number(order.total_value) || 0,
+          isPartialPaid: order.is_partial_paid,
+        }
+      : {
+          clientName: '',
+          description: '',
+          stage: 'COTACAO',
+          deliveryDate: getDefaultDeliveryDate(),
+          amountValue: 400.0,
+          isPartialPaid: true,
+        },
   });
 
   const stage = useWatch({ control, name: 'stage' });
@@ -113,10 +129,50 @@ function NewOrderModalContent({ onClose, onSuccess }: Omit<NewOrderModalProps, '
     setApiError('');
 
     try {
-      const currentHalfValue = data.amountValue > 0 ? data.amountValue / 2 : 0;
-      const paidAmount = data.isPartialPaid
-        ? currentHalfValue
-        : (data.stage === 'ENTREGUE' || data.stage === 'PAGAMENTO' ? data.amountValue : 0);
+      if (isEditing && order) {
+        const payload = buildOrderEditPayload(
+          order,
+          {
+            clientName: data.clientName,
+            description: data.description,
+            deliveryDate: data.deliveryDate,
+            amountValue: data.amountValue,
+            isPartialPaid: data.isPartialPaid,
+          },
+          dirtyFields
+        );
+
+        if (Object.keys(payload).length === 0) {
+          onClose();
+          return;
+        }
+
+        const res = await fetch('/api/orders', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: order.id, ...payload }),
+        });
+
+        if (res.status === 401) {
+          router.replace('/login');
+          return;
+        }
+
+        if (!res.ok) {
+          const resData = await res.json();
+          throw new Error(resData.error || 'Erro ao atualizar pedido');
+        }
+
+        onSuccess();
+        onClose();
+        return;
+      }
+
+      const paidAmount = computePaidAmount({
+        amountValue: data.amountValue,
+        isPartialPaid: data.isPartialPaid,
+        stage: data.stage,
+      });
 
       const res = await fetch('/api/orders', {
         method: 'POST',
@@ -156,15 +212,17 @@ function NewOrderModalContent({ onClose, onSuccess }: Omit<NewOrderModalProps, '
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg bg-[#121826] border border-white/10 rounded-2xl p-6 shadow-2xl modal-content-animation text-left">
+      <div className="relative w-full max-w-lg bg-[var(--surface-panel)] border border-white/10 rounded-2xl p-6 shadow-2xl modal-content-animation text-left">
         {/* Topo do Modal */}
         <div className="flex items-center justify-between pb-4 border-b border-white/10">
           <h3 className="text-xl font-bold text-white tracking-tight">
-            Novo Pedido de Impressão 3D
+            {isEditing ? `Pedido · ${order?.client_name ?? ''}` : 'Novo Pedido de Impressão 3D'}
           </h3>
           <button
+            type="button"
             onClick={onClose}
             className="p-1.5 rounded-lg text-[var(--text-dim)] hover:text-white hover:bg-white/5 transition-colors"
+            aria-label="Fechar modal"
           >
             <X className="w-5 h-5" />
           </button>
@@ -194,35 +252,37 @@ function NewOrderModalContent({ onClose, onSuccess }: Omit<NewOrderModalProps, '
               Item e 3D model descrição
             </label>
             <textarea
-              rows={3}
+              rows={isEditing ? 5 : 3}
               {...register('description')}
               placeholder="Ex: 3 Troféus Banespinha em PLA Silk Ouro + Preto"
-              className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-[var(--text-dim)] focus:outline-none focus:border-emerald-500/50 resize-none"
+              className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-[var(--text-dim)] focus:outline-none focus:border-emerald-500/50 resize-y min-h-[104px] max-h-[220px] overflow-y-auto"
             />
           </div>
 
           {/* Stage Selector (5 Etapas em Pills) */}
-          <div>
-            <label className="block text-xs font-semibold text-[var(--text-muted)] mb-2">
-              Stage selector
-            </label>
-            <div className="grid grid-cols-5 gap-1.5 p-1 bg-white/5 rounded-xl border border-white/10">
-              {STAGES.map((s) => (
-                <button
-                  key={s.key}
-                  type="button"
-                  onClick={() => setValue('stage', s.key, { shouldValidate: true })}
-                  className={`py-2 px-1 text-xs rounded-lg transition-all text-center truncate ${
-                    stage === s.key
-                      ? s.activeClass
-                      : 'text-[var(--text-dim)] hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  {s.label}
-                </button>
-              ))}
+          {!isEditing && (
+            <div>
+              <label className="block text-xs font-semibold text-[var(--text-muted)] mb-2">
+                Stage selector
+              </label>
+              <div className="grid grid-cols-5 gap-1.5 p-1 bg-white/5 rounded-xl border border-white/10">
+                {STAGES.map((s) => (
+                  <button
+                    key={s.key}
+                    type="button"
+                    onClick={() => setValue('stage', s.key, { shouldValidate: true })}
+                    className={`py-2 px-1 text-xs rounded-lg transition-all text-center truncate ${
+                      stage === s.key
+                        ? s.activeClass
+                        : 'text-[var(--text-dim)] hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Duas Colunas: Data de Entrega / Prazo & Valor Total */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
@@ -305,7 +365,7 @@ function NewOrderModalContent({ onClose, onSuccess }: Omit<NewOrderModalProps, '
               disabled={loading}
               className="px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm shadow-lg shadow-emerald-500/30 transition-all hover:scale-[1.02] active:scale-98 disabled:opacity-50"
             >
-              {loading ? 'Salvando...' : 'Salvar Pedido'}
+              {loading ? 'Salvando...' : isEditing ? 'Salvar alterações' : 'Salvar Pedido'}
             </button>
           </div>
         </form>
@@ -314,7 +374,7 @@ function NewOrderModalContent({ onClose, onSuccess }: Omit<NewOrderModalProps, '
   );
 }
 
-export function NewOrderModal({ isOpen, onClose, onSuccess }: NewOrderModalProps) {
+export function NewOrderModal({ isOpen, onClose, onSuccess, order }: NewOrderModalProps) {
   if (!isOpen) return null;
-  return <NewOrderModalContent onClose={onClose} onSuccess={onSuccess} />;
+  return <NewOrderModalContent onClose={onClose} onSuccess={onSuccess} order={order} />;
 }

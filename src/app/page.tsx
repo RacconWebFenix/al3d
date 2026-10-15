@@ -30,6 +30,7 @@ export default function Home() {
   // Estado dos Pedidos
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState<boolean>(true);
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
 
   // Modais
   const [isNewModalOpen, setIsNewModalOpen] = useState<boolean>(false);
@@ -216,6 +217,11 @@ export default function Home() {
     }
   };
 
+  const handleViewOrder = (order: Order) => {
+    setEditingOrder(order);
+    setIsNewOrderModalOpen(true);
+  };
+
   const handleDeleteOrder = (id: number) => {
     setDeleteOrderTargetId(id);
   };
@@ -265,10 +271,14 @@ export default function Home() {
           <OrdersKanban
             orders={orders}
             loading={loadingOrders}
-            onOpenNewOrder={() => setIsNewOrderModalOpen(true)}
+            onOpenNewOrder={() => {
+              setEditingOrder(null);
+              setIsNewOrderModalOpen(true);
+            }}
             onRefresh={fetchOrders}
             onMoveOrderToStage={handleMoveOrderToStage}
             onDeleteOrder={handleDeleteOrder}
+            onView={handleViewOrder}
           />
         </div>
       )}
@@ -344,8 +354,13 @@ export default function Home() {
 
       {/* Modal de Novo Pedido (Pipeline de Produção) */}
       <NewOrderModal
+        key={editingOrder?.id ?? 'new-order'}
         isOpen={isNewOrderModalOpen}
-        onClose={() => setIsNewOrderModalOpen(false)}
+        order={editingOrder ?? undefined}
+        onClose={() => {
+          setIsNewOrderModalOpen(false);
+          setEditingOrder(null);
+        }}
         onSuccess={fetchOrders}
       />
 

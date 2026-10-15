@@ -10,6 +10,11 @@
   --border-error: rgba(244, 63, 94, 0.5);
   --shadow-card: 0 24px 48px rgba(0, 0, 0, 0.4);
   --bg-card-solid: #101522;
+  --surface-panel: #121826;
+  --surface-panel-alt: #0f172a;
+  --surface-panel-strong: #101726;
+  --surface-panel-deep: #111827;
+  --surface-column: #0c121e;
   
   --emerald-main: #10b981;
   --emerald-glow: rgba(16, 185, 129, 0.25);

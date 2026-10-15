@@ -25,6 +25,7 @@ interface OrdersKanbanProps {
   onRefresh?: () => void;
   onMoveOrderToStage: (orderId: number, targetStage: Order['stage']) => void;
   onDeleteOrder: (id: number) => void;
+  onView: (order: Order) => void;
 }
 
 interface ColumnConfig {
@@ -98,6 +99,7 @@ export function OrdersKanban({
   onOpenNewOrder,
   onMoveOrderToStage,
   onDeleteOrder,
+  onView,
 }: OrdersKanbanProps) {
   const isNarrowViewport = useSyncExternalStore(
     subscribeToResize,
@@ -231,9 +233,9 @@ export function OrdersKanban({
                   onChange={(e) => setDateFilter(e.target.value as 'ALL' | 'WEEK' | 'LATE')}
                   className="pl-8 pr-7 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs appearance-none focus:outline-none focus:border-emerald-500/50 cursor-pointer"
                 >
-                  <option value="ALL" className="bg-[#121826] text-white">Todos os prazos</option>
-                  <option value="WEEK" className="bg-[#121826] text-white">Próximos 7 dias</option>
-                  <option value="LATE" className="bg-[#121826] text-white">Atrasados</option>
+                  <option value="ALL" className="bg-[var(--surface-panel)] text-white">Todos os prazos</option>
+                  <option value="WEEK" className="bg-[var(--surface-panel)] text-white">Próximos 7 dias</option>
+                  <option value="LATE" className="bg-[var(--surface-panel)] text-white">Atrasados</option>
                 </select>
               </div>
 
@@ -263,6 +265,7 @@ export function OrdersKanban({
           onOpenNewOrder={onOpenNewOrder}
           onMoveOrderToStage={onMoveOrderToStage}
           onDeleteOrder={onDeleteOrder}
+          onView={onView}
         />
       ) : (
         /* Grid das 5 Colunas do Kanban com Drag and Drop */
@@ -281,7 +284,7 @@ export function OrdersKanban({
                 className={`flex flex-col min-h-[550px] rounded-2xl p-2.5 transition-all duration-200 border ${
                   isHovered
                     ? 'border-emerald-500/60 bg-emerald-500/[0.06] shadow-xl shadow-emerald-500/10 ring-2 ring-emerald-500/30 scale-[1.01]'
-                    : 'bg-[#0c121e]/60 border-white/5'
+                    : 'bg-[var(--surface-column)]/60 border-white/5'
                 }`}
               >
                 {/* Cabeçalho da Coluna (Pill com Número, Ícone e Label) */}
@@ -329,6 +332,7 @@ export function OrdersKanban({
                         key={order.id}
                         order={order}
                         onDelete={onDeleteOrder}
+                        onView={onView}
                       />
                     ))
                   )}

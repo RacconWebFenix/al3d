@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Calendar, Trash2, AlertTriangle, GripVertical } from 'lucide-react';
+import { Calendar, Trash2, AlertTriangle, GripVertical, Eye } from 'lucide-react';
 import { formatCurrencyBRL } from '@/lib/formatters';
 
 export interface Order {
@@ -19,9 +19,10 @@ export interface Order {
 interface OrderCardProps {
   order: Order;
   onDelete: (id: number) => void;
+  onView: (order: Order) => void;
 }
 
-export function OrderCard({ order, onDelete }: OrderCardProps) {
+export function OrderCard({ order, onDelete, onView }: OrderCardProps) {
   const [isDragging, setIsDragging] = useState(false);
 
   // Cálculo de dias restantes para o prazo de entrega
@@ -82,7 +83,7 @@ export function OrderCard({ order, onDelete }: OrderCardProps) {
       draggable
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
-      className={`group relative bg-[#121826]/90 border rounded-2xl p-4 shadow-xl backdrop-blur-md transition-all cursor-grab active:cursor-grabbing select-none ${
+      className={`group relative bg-[var(--surface-panel)]/90 border rounded-2xl p-4 shadow-xl backdrop-blur-md transition-all cursor-grab active:cursor-grabbing select-none ${
         isDragging
           ? 'opacity-40 scale-95 border-emerald-500/60 shadow-emerald-500/20 shadow-2xl'
           : 'border-white/10 hover:border-white/25 hover:shadow-2xl hover:-translate-y-0.5'
@@ -97,16 +98,32 @@ export function OrderCard({ order, onDelete }: OrderCardProps) {
           </h4>
         </div>
 
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete(order.id);
-          }}
-          className="opacity-0 group-hover:opacity-100 text-[var(--text-dim)] hover:text-rose-400 p-1 rounded-lg hover:bg-white/5 transition-all"
-          title="Excluir pedido"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            aria-label="Ver e editar pedido"
+            onClick={(e) => {
+              e.stopPropagation();
+              onView(order);
+            }}
+            className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 text-[var(--text-dim)] hover:text-[var(--emerald-main)] hover:bg-[var(--emerald-bg)] p-1.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] transition-all"
+            title="Ver e editar pedido"
+          >
+            <Eye className="w-3.5 h-3.5" />
+          </button>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(order.id);
+            }}
+            className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 text-[var(--text-dim)] hover:text-rose-400 p-1.5 rounded-lg hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--coral-glow)] transition-all"
+            title="Excluir pedido"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
 
       {/* Descrição do Pedido / Peça 3D */}

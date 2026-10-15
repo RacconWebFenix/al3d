@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { orderSchema } from '@/components/NewOrderModal';
 import { transactionSchema } from '@/components/QuickEntryModal';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { buildOrderEditPayload, computePaidAmount, orderPatchSchema } from '@/lib/orderSchemas';
 
 describe('orderSchema (NewOrderModal)', () => {
   const validOrder = {
@@ -95,6 +96,122 @@ describe('orderSchema (NewOrderModal)', () => {
     expect(resolverResult.errors.description?.message).toBe('Informe a descrição do item ou modelo 3D.');
     expect(resolverResult.errors.deliveryDate?.message).toBe('Defina o prazo de entrega.');
     expect(resolverResult.errors.amountValue?.message).toBe('Informe o valor total do pedido.');
+  });
+});
+
+describe('orderPatchSchema', () => {
+  const validPatch = {
+    id: 7,
+    client_name: 'Marcos Banespinha',
+    description: 'Troféu 3D em PLA Silk',
+    delivery_date: '2026-09-25',
+    total_value: 400,
+    paid_amount: 200,
+    is_partial_paid: true,
+  };
+
+  it('aceita um payload parcial válido', () => {
+    const result = orderPatchSchema.safeParse({ id: 7, client_name: ' Marcos ' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.client_name).toBe('Marcos');
+    }
+  });
+
+  it('rejeita client_name vazio após trim', () => {
+    const result = orderPatchSchema.safeParse({ ...validPatch, client_name: '   ' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejeita stage inválido', () => {
+    const result = orderPatchSchema.safeParse({ ...validPatch, stage: 'STAGE_INVALIDA' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejeita chave desconhecida', () => {
+    const result = orderPatchSchema.safeParse({ ...validPatch, extraField: true });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejeita valores negativos', () => {
+    const totalNegative = orderPatchSchema.safeParse({ ...validPatch, total_value: -10 });
+    const paidNegative = orderPatchSchema.safeParse({ ...validPatch, paid_amount: -1 });
+
+    expect(totalNegative.success).toBe(false);
+    expect(paidNegative.success).toBe(false);
+  });
+});
+
+describe('computePaidAmount e buildOrderEditPayload', () => {
+  const orderBase = {
+    id: 7,
+    client_name: 'Marcos Banespinha',
+    description: 'Troféu 3D em PLA Silk',
+    stage: 'COTACAO' as const,
+    total_value: 400,
+    paid_amount: 200,
+    is_partial_paid: true,
+    delivery_date: '2026-09-25',
+    notes: 'Prazo urgente',
+  };
+
+  it('calcula paid_amount para cada ramo da regra', () => {
+    expect(computePaidAmount({ amountValue: 400, isPartialPaid: true, stage: 'COTACAO' })).toBe(200);
+    expect(computePaidAmount({ amountValue: 400, isPartialPaid: false, stage: 'COTACAO' })).toBe(0);
+    expect(computePaidAmount({ amountValue: 400, isPartialPaid: false, stage: 'PAGAMENTO' })).toBe(400);
+    expect(computePaidAmount({ amountValue: 400, isPartialPaid: false, stage: 'ENTREGUE' })).toBe(400);
+  });
+
+  it('retorna payload vazio quando nada mudou', () => {
+    const payload = buildOrderEditPayload(
+      orderBase,
+      {
+        clientName: 'Marcos Banespinha',
+        description: 'Troféu 3D em PLA Silk',
+        deliveryDate: '2026-09-25',
+        amountValue: 400,
+        isPartialPaid: true,
+      },
+      {}
+    );
+
+    expect(payload).toEqual({});
+  });
+
+  it('só descrição alterada não envia paid_amount', () => {
+    const payload = buildOrderEditPayload(
+      orderBase,
+      {
+        clientName: 'Marcos Banespinha',
+        description: 'Troféu 3D em PLA Silk — novo modelo',
+        deliveryDate: '2026-09-25',
+        amountValue: 400,
+        isPartialPaid: true,
+      },
+      { description: true }
+    );
+
+    expect(payload).toEqual({ description: 'Troféu 3D em PLA Silk — novo modelo' });
+  });
+
+  it('valor alterado recalcula paid_amount', () => {
+    const payload = buildOrderEditPayload(
+      orderBase,
+      {
+        clientName: 'Marcos Banespinha',
+        description: 'Troféu 3D em PLA Silk',
+        deliveryDate: '2026-09-25',
+        amountValue: 600,
+        isPartialPaid: true,
+      },
+      { amountValue: true, isPartialPaid: true }
+    );
+
+    expect(payload).toEqual({
+      total_value: 600,
+      is_partial_paid: true,
+      paid_amount: 300,
+    });
   });
 });
 
