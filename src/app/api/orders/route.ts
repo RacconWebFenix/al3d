@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireSession } from '@/lib/auth';
 import pool, { QueryParam } from '@/lib/db';
+import { orderPatchSchema } from '@/lib/orderSchemas';
 
 interface OrderDbRow {
   id: number;
@@ -59,9 +60,8 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ orders });
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Erro ao buscar pedidos';
-    console.error('Erro ao buscar pedidos:', msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error('Erro ao buscar pedidos:', error);
+    return NextResponse.json({ error: 'Erro ao buscar pedidos.' }, { status: 500 });
   }
 }
 
@@ -106,9 +106,8 @@ export async function POST(request: Request) {
       paid_amount: typeof created.paid_amount === 'number' ? created.paid_amount : parseFloat(created.paid_amount),
     }, { status: 201 });
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Erro ao criar pedido';
-    console.error('Erro ao criar pedido:', msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error('Erro ao criar pedido:', error);
+    return NextResponse.json({ error: 'Erro ao criar pedido.' }, { status: 500 });
   }
 }
 
@@ -118,11 +117,13 @@ export async function PATCH(request: Request) {
 
   try {
     const body = await request.json();
-    const { id, stage, paid_amount, is_partial_paid, notes, delivery_date, description, client_name, total_value } = body;
+    const parsed = orderPatchSchema.safeParse(body);
 
-    if (!id) {
-      return NextResponse.json({ error: 'ID do pedido é obrigatório' }, { status: 400 });
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Dados inválidos.' }, { status: 400 });
     }
+
+    const { id, stage, paid_amount, is_partial_paid, notes, delivery_date, description, client_name, total_value } = parsed.data;
 
     const updates: string[] = [];
     const params: QueryParam[] = [];
@@ -132,7 +133,7 @@ export async function PATCH(request: Request) {
       updates.push(`stage = $${params.length}`);
     }
     if (paid_amount !== undefined) {
-      params.push(parseFloat(paid_amount) || 0);
+      params.push(Number(paid_amount));
       updates.push(`paid_amount = $${params.length}`);
     }
     if (is_partial_paid !== undefined) {
@@ -140,7 +141,8 @@ export async function PATCH(request: Request) {
       updates.push(`is_partial_paid = $${params.length}`);
     }
     if (notes !== undefined) {
-      params.push(notes);
+      const safeNotes = notes === null ? null : notes.trim();
+      params.push(safeNotes as QueryParam);
       updates.push(`notes = $${params.length}`);
     }
     if (delivery_date !== undefined) {
@@ -148,19 +150,19 @@ export async function PATCH(request: Request) {
       updates.push(`delivery_date = $${params.length}`);
     }
     if (description !== undefined) {
-      params.push(description);
+      params.push(description.trim());
       updates.push(`description = $${params.length}`);
     }
     if (client_name !== undefined) {
-      params.push(client_name);
+      params.push(client_name.trim());
       updates.push(`client_name = $${params.length}`);
     }
     if (total_value !== undefined) {
-      params.push(parseFloat(total_value) || 0);
+      params.push(Number(total_value));
       updates.push(`total_value = $${params.length}`);
     }
 
-    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    updates.push('updated_at = CURRENT_TIMESTAMP');
     params.push(id);
 
     const queryText = `
@@ -182,9 +184,12 @@ export async function PATCH(request: Request) {
       paid_amount: typeof updated.paid_amount === 'number' ? updated.paid_amount : parseFloat(updated.paid_amount),
     });
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Erro ao atualizar pedido';
-    console.error('Erro ao atualizar pedido:', msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    if (error instanceof SyntaxError) {
+      return NextResponse.json({ error: 'Dados inválidos.' }, { status: 400 });
+    }
+
+    console.error('Erro ao atualizar pedido:', error);
+    return NextResponse.json({ error: 'Erro ao atualizar pedido.' }, { status: 500 });
   }
 }
 
@@ -203,8 +208,7 @@ export async function DELETE(request: Request) {
     await pool.query('DELETE FROM orders WHERE id = $1', [id]);
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Erro ao excluir pedido';
-    console.error('Erro ao excluir pedido:', msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error('Erro ao excluir pedido:', error);
+    return NextResponse.json({ error: 'Erro ao excluir pedido.' }, { status: 500 });
   }
 }

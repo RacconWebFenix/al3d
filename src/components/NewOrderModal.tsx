@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { formatCurrencyBRL } from '@/lib/formatters';
+import { computePaidAmount } from '@/lib/orderSchemas';
 
 interface NewOrderModalProps {
   isOpen: boolean;
@@ -113,10 +114,11 @@ function NewOrderModalContent({ onClose, onSuccess }: Omit<NewOrderModalProps, '
     setApiError('');
 
     try {
-      const currentHalfValue = data.amountValue > 0 ? data.amountValue / 2 : 0;
-      const paidAmount = data.isPartialPaid
-        ? currentHalfValue
-        : (data.stage === 'ENTREGUE' || data.stage === 'PAGAMENTO' ? data.amountValue : 0);
+      const paidAmount = computePaidAmount({
+        amountValue: data.amountValue,
+        isPartialPaid: data.isPartialPaid,
+        stage: data.stage,
+      });
 
       const res = await fetch('/api/orders', {
         method: 'POST',
@@ -156,14 +158,16 @@ function NewOrderModalContent({ onClose, onSuccess }: Omit<NewOrderModalProps, '
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg bg-[#121826] border border-white/10 rounded-2xl p-6 shadow-2xl modal-content-animation text-left">
+      <div className="relative w-full max-w-lg bg-[var(--surface-panel)] border border-white/10 rounded-2xl p-6 shadow-2xl modal-content-animation text-left">
         {/* Topo do Modal */}
         <div className="flex items-center justify-between pb-4 border-b border-white/10">
           <h3 className="text-xl font-bold text-white tracking-tight">
             Novo Pedido de Impressão 3D
           </h3>
           <button
+            type="button"
             onClick={onClose}
+            aria-label="Fechar modal"
             className="p-1.5 rounded-lg text-[var(--text-dim)] hover:text-white hover:bg-white/5 transition-colors"
           >
             <X className="w-5 h-5" />

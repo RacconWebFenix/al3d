@@ -11,63 +11,29 @@ import {
   Box, 
   Trash2, 
   ChevronRight, 
-  Filter 
+  Filter,
+  Eye 
 } from 'lucide-react';
 import { Order } from './OrderCard';
 import { formatCurrencyBRL } from '@/lib/formatters';
+import { STAGES_CONFIG } from '@/lib/orderDisplay';
 
 interface OrdersListViewProps {
   orders: Order[];
   onOpenNewOrder: () => void;
   onMoveOrderToStage: (orderId: number, targetStage: Order['stage']) => void;
   onDeleteOrder: (id: number) => void;
+  onView: (order: Order) => void;
 }
 
 type StageFilter = 'ALL' | Order['stage'];
-
-const STAGES_CONFIG: { key: Order['stage']; label: string; shortLabel: string; badgeClasses: string; glowBorder: string }[] = [
-  {
-    key: 'COTACAO',
-    label: 'Cotação',
-    shortLabel: 'Cotação',
-    badgeClasses: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30',
-    glowBorder: 'border-cyan-500/40',
-  },
-  {
-    key: 'MODELANDO',
-    label: 'Modelando',
-    shortLabel: 'Modelando',
-    badgeClasses: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
-    glowBorder: 'border-amber-500/40',
-  },
-  {
-    key: 'IMPRIMINDO',
-    label: 'Imprimindo',
-    shortLabel: 'Imprimindo',
-    badgeClasses: 'bg-cyan-400/15 text-cyan-300 border-cyan-400/40 shadow-[0_0_12px_rgba(6,182,212,0.18)]',
-    glowBorder: 'border-cyan-400/50',
-  },
-  {
-    key: 'PAGAMENTO',
-    label: 'Pagamento',
-    shortLabel: 'Pagamento',
-    badgeClasses: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
-    glowBorder: 'border-purple-500/40',
-  },
-  {
-    key: 'ENTREGUE',
-    label: 'Entregue',
-    shortLabel: 'Entregue',
-    badgeClasses: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
-    glowBorder: 'border-emerald-500/40',
-  },
-];
 
 export function OrdersListView({
   orders,
   onOpenNewOrder,
   onMoveOrderToStage,
   onDeleteOrder,
+  onView,
 }: OrdersListViewProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeStageFilter, setActiveStageFilter] = useState<StageFilter>('ALL');
@@ -252,14 +218,14 @@ export function OrdersListView({
 
       {/* 3. Barra Rápida de Métricas (KPI Quick Bar) */}
       <div className="grid grid-cols-3 gap-2.5">
-        <div className="flex flex-col justify-between p-3 rounded-2xl bg-[#0f172a]/90 border border-white/10 shadow-lg">
+        <div className="flex flex-col justify-between p-3 rounded-2xl bg-[var(--surface-panel-alt)]/90 border border-white/10 shadow-lg">
           <span className="text-[11px] text-[var(--text-dim)] font-medium">Total</span>
           <span className="text-sm sm:text-base font-extrabold text-white tracking-tight mt-0.5 truncate">
             {formatCurrencyBRL(kpis.totalRevenue)}
           </span>
         </div>
 
-        <div className="flex flex-col justify-between p-3 rounded-2xl bg-[#0f172a]/90 border border-white/10 shadow-lg">
+        <div className="flex flex-col justify-between p-3 rounded-2xl bg-[var(--surface-panel-alt)]/90 border border-white/10 shadow-lg">
           <span className="text-[11px] text-[var(--text-dim)] font-medium">Hoje</span>
           <div className="flex items-center gap-1 mt-0.5">
             <span className="text-sm sm:text-base font-extrabold text-amber-400">
@@ -269,7 +235,7 @@ export function OrdersListView({
           </div>
         </div>
 
-        <div className="flex flex-col justify-between p-3 rounded-2xl bg-[#0f172a]/90 border border-white/10 shadow-lg">
+        <div className="flex flex-col justify-between p-3 rounded-2xl bg-[var(--surface-panel-alt)]/90 border border-white/10 shadow-lg">
           <span className="text-[11px] text-[var(--text-dim)] font-medium">Atraso</span>
           <span className={`text-sm sm:text-base font-extrabold mt-0.5 ${kpis.lateCount > 0 ? 'text-rose-400' : 'text-slate-300'}`}>
             {kpis.lateCount}
@@ -280,7 +246,7 @@ export function OrdersListView({
       {/* 4. Lista Vertical de Cards (Sem fotos/avatares, 100% Fiel ao Mockup) */}
       <div className="space-y-3 pt-1">
         {filteredOrders.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 px-4 rounded-2xl bg-[#0f172a]/60 border border-dashed border-white/10 text-center">
+          <div className="flex flex-col items-center justify-center py-16 px-4 rounded-2xl bg-[var(--surface-panel-alt)]/60 border border-dashed border-white/10 text-center">
             <Box className="w-10 h-10 text-[var(--text-dim)] mb-2 opacity-60" />
             <p className="text-sm text-white font-medium">Nenhum pedido encontrado</p>
             <p className="text-xs text-[var(--text-dim)] mt-1">
@@ -299,7 +265,7 @@ export function OrdersListView({
             return (
               <div
                 key={order.id}
-                className="relative bg-[#101726] border border-white/10 hover:border-white/20 rounded-2xl p-4 shadow-xl backdrop-blur-md transition-all duration-200"
+                className="relative bg-[var(--surface-panel-strong)] border border-white/10 hover:border-white/20 rounded-2xl p-4 shadow-xl backdrop-blur-md transition-all duration-200"
               >
                 {/* Linha Superior: Nome do Cliente + Ícone 3D e Badge de Etapa */}
                 <div className="flex items-start justify-between gap-2 mb-2">
@@ -310,7 +276,20 @@ export function OrdersListView({
                     </h4>
                   </div>
 
-                  <div className="flex items-center gap-1 flex-shrink-0">
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      type="button"
+                      aria-label="Ver detalhes"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onView(order);
+                      }}
+                      className="min-w-[40px] min-h-[40px] flex items-center justify-center p-2 rounded-lg text-[var(--text-dim)] hover:text-[var(--text-main)] active:text-[var(--text-main)] transition-colors"
+                      title="Ver detalhes"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
+
                     {/* Badge de Etapa (Abre Action Sheet no Mobile) */}
                     <button
                       onClick={() => setSelectedOrderForStageChange(order)}
@@ -323,11 +302,13 @@ export function OrdersListView({
 
                     {/* Botão de Excluir */}
                     <button
+                      type="button"
+                      aria-label="Excluir pedido"
                       onClick={() => onDeleteOrder(order.id)}
-                      className="text-[var(--text-dim)] hover:text-rose-400 p-1 rounded-lg hover:bg-white/5 transition-all ml-1"
+                      className="min-w-[40px] min-h-[40px] flex items-center justify-center p-2 rounded-lg text-[var(--text-dim)] hover:text-[var(--coral-main)] active:text-[var(--coral-main)] transition-colors"
                       title="Excluir pedido"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -385,7 +366,7 @@ export function OrdersListView({
           onClick={() => setSelectedOrderForStageChange(null)}
         >
           <div 
-            className="w-full max-w-md rounded-t-3xl sm:rounded-2xl bg-[#111827] border border-white/15 p-5 shadow-2xl space-y-4 animate-in slide-in-from-bottom-5"
+            className="w-full max-w-md rounded-t-3xl sm:rounded-2xl bg-[var(--surface-panel-deep)] border border-white/15 p-5 shadow-2xl space-y-4 animate-in slide-in-from-bottom-5"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Handle do modal mobile */}
@@ -409,6 +390,24 @@ export function OrdersListView({
                 ✕
               </button>
             </div>
+
+            <button
+              type="button"
+              aria-label="Ver detalhes"
+              onClick={() => {
+                onView(selectedOrderForStageChange);
+                setSelectedOrderForStageChange(null);
+              }}
+              className="w-full flex items-center justify-between p-3 rounded-xl border border-[var(--border-focus)] bg-[var(--emerald-bg)] text-[var(--emerald-main)] text-sm font-semibold transition-all"
+            >
+              <div className="flex items-center gap-3">
+                <span className="w-7 h-7 rounded-lg bg-[var(--emerald-bg)] flex items-center justify-center">
+                  <Eye className="w-4 h-4" />
+                </span>
+                <span>Ver detalhes</span>
+              </div>
+              <ChevronRight className="w-4 h-4 opacity-80" />
+            </button>
 
             {/* Lista com todas as 5 Etapas completas */}
             <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
